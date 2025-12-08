@@ -4,6 +4,12 @@ import pandas as pd
 import duckdb
 from message import send_text
 import numpy as np
+import pytz
+est = pytz.timezone("America/New_York")
+
+
+
+
 
 def py(x):
     # convert numpy numbers → plain Python types
@@ -247,7 +253,8 @@ otm_put_2_spread_pct = (otm_put_2_spread / otm_put_2_mid) * 100
 
 
 #timestamp
-timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+now_est = datetime.datetime.now(est)
+timestamp = now_est.strftime("%Y-%m-%d %H:%M:%S")
 #symbol
 symbol = stock.ticker
 
