@@ -247,7 +247,7 @@ otm_put_2_spread_pct = (otm_put_2_spread / otm_put_2_mid) * 100
 
 
 #timestamp
-timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 #symbol
 symbol = stock.ticker
 
