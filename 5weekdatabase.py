@@ -3,6 +3,15 @@ import datetime
 import pandas as pd
 import duckdb
 from message import send_text
+import numpy as np
+
+def py(x):
+    # convert numpy numbers → plain Python types
+    if isinstance(x, (np.integer,)):
+        return int(x)
+    if isinstance(x, (np.floating,)):
+        return float(x)
+    return x
 
 
 # ---------- STEP 1: Get this week's Friday chain ----------
@@ -298,6 +307,33 @@ WHERE timestamp < NOW() - INTERVAL '35 days';
 
 
 con.execute("""
+CREATE TABLE IF NOT EXISTS option_snapshots_5w (
+    snapshot_id TEXT,
+    timestamp TIMESTAMP,
+    symbol TEXT,
+    strike DOUBLE,
+    call_put TEXT,
+    days_to_expiry INTEGER,
+    moneyness_bucket TEXT,
+    bid DOUBLE,
+    ask DOUBLE,
+    mid DOUBLE,
+    volume INTEGER,
+    open_interest INTEGER,
+    iv DOUBLE,
+    spread DOUBLE,
+    spread_pct DOUBLE,
+    time_decay_bucket TEXT
+);
+""")
+
+# keep only recent 5 weeks (~35 days)
+con.execute("""
+DELETE FROM option_snapshots_5w
+WHERE timestamp < NOW() - INTERVAL '35 days';
+""")
+
+con.execute("""
 INSERT INTO option_snapshots_5w (
     snapshot_id,
     timestamp,
@@ -323,7 +359,7 @@ VALUES
     (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
     (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
     (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-""", [
+""", [py(x) for x in [
     # ATM CALL
     snapshot_id, timestamp, symbol, closest_atm_call, "C", days_till_expiry, "ATM",
     atm_call_bid, atm_call_ask, atm_call_mid, atm_call_volume, atm_call_oi,
@@ -353,7 +389,8 @@ VALUES
     snapshot_id, timestamp, symbol, otm_put_2_closest, "P", days_till_expiry, "OTM_2",
     otm_put_2_bid, otm_put_2_ask, otm_put_2_mid, otm_put_2_volume, otm_put_2_oi,
     otm_put_2_iv, otm_put_2_spread, otm_put_2_spread_pct, time_decay_bucket
-])
+]])
+
 
 
 
@@ -638,7 +675,7 @@ VALUES
     (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
     (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
     (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-""", [
+""", [py(x) for x in [
     # ATM CALL
     snapshot_id, timestamp, symbol, closest_atm_call, "C", days_till_expiry, "ATM",
     atm_call_bid, atm_call_ask, atm_call_mid, atm_call_volume, atm_call_oi,
@@ -674,7 +711,8 @@ VALUES
     otm_put_2_bid, otm_put_2_ask, otm_put_2_mid, otm_put_2_volume, otm_put_2_oi,
     otm_put_2_iv, otm_put_2_spread, otm_put_2_spread_pct, time_decay_bucket,
     otm_put_2_z, otm_put_2_vol_z, otm_put_2_iv_z
-])
+]])
+
 
 
 
