@@ -94,7 +94,7 @@ for strike in chain.calls["strike"]:
         otm_call_1_min_diff = diff
         otm_call_1_closest = strike
 
-print(otm_call_1_closest)
+
 
 #gets closest strike to 1-2 percent otm put
 otm_put_1_target = otm_put_1_strike
@@ -109,7 +109,7 @@ for strike in chain.puts["strike"]:
         otm_put_1_closest = strike
 
 
-print(otm_put_1_closest)
+
 
 
 #gets closest strike to 3-4 percent otm call
