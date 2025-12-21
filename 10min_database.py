@@ -4,11 +4,15 @@ import pandas as pd
 import duckdb
 from message import send_text
 import numpy as np
-
+from databasefunctions import get_option_quote
 import pytz
+from databasefunctions import compute_z_scores_for_bucket
+
+
+
 est = pytz.timezone("America/New_York")
 
-
+from databasefunctions import get_closest_strike
 
 
 def py(x):
@@ -20,10 +24,13 @@ def py(x):
 
 
 # ---------- STEP 1: Get this week's Friday chain ----------
+now = datetime.datetime.now()
+print(now.strftime("%Y-%m-%d %H:%M"))
 
-today = datetime.date.today()
 
-print(today)
+now_dateobject = now.date()   # <-- REAL date object
+
+
 
 
 
@@ -36,7 +43,7 @@ def get_friday_within_4_days():
     for exp in expirations:
         d = datetime.datetime.strptime(exp, "%Y-%m-%d").date()
 
-        if d.weekday() == 4 and (d - today).days <= 4:
+        if d.weekday() == 4 and (d - now_dateobject).days <= 4:
             return exp   # ✅ return the Friday expiration
 
     return None  # ✅ means: no Friday in range
@@ -57,29 +64,6 @@ puts = chain.puts
 #current price
 atm = stock.info["currentPrice"]
 
-
-#closest atm call
-min_diff = float("inf")
-closest_atm_call = None
-
-for strike in chain.calls["strike"]:
-    diff = abs(strike - atm)
-    if diff < min_diff:
-        min_diff = diff
-        closest_atm_call = strike
-
-#closest atm put
-min_diff_put = float("inf")
-closest_atm_put = None
-
-for strike in chain.puts["strike"]:
-    diff = abs(strike - atm)
-    if diff < min_diff_put:
-        min_diff_put = diff
-        closest_atm_put = strike
-
-
-
 #1-2 percent otm
 otm_call_1_strike = atm * 1.015
 otm_put_1_strike  = atm * 0.985
@@ -89,165 +73,136 @@ otm_call_2_strike = atm * 1.035
 otm_put_2_strike  = atm * 0.965
 
 
-otm_call_1_target = otm_call_1_strike
 
-otm_call_1_min_diff = float("inf")
-otm_call_1_closest = None
-#gets closest strike to 1-2 percent otm call
-for strike in chain.calls["strike"]:
-    diff = abs(strike - otm_call_1_target)
-    if diff < otm_call_1_min_diff:
-        otm_call_1_min_diff = diff
-        otm_call_1_closest = strike
+closest_atm_call = get_closest_strike(chain, "C", atm)
 
 
-
-#gets closest strike to 1-2 percent otm put
-otm_put_1_target = otm_put_1_strike
-
-otm_put_1_min_diff = float("inf")
-otm_put_1_closest = None
-
-for strike in chain.puts["strike"]:
-    diff = abs(strike - otm_put_1_target)
-    if diff < otm_put_1_min_diff:
-        otm_put_1_min_diff = diff
-        otm_put_1_closest = strike
+closest_atm_put = get_closest_strike(chain, "P", atm)
 
 
+otm_call_1_closest = get_closest_strike(chain, "C", otm_call_1_strike)
 
 
+otm_put_1_closest = get_closest_strike(chain, "P", otm_put_1_strike)
 
-#gets closest strike to 3-4 percent otm call
-otm_call_2_target = otm_call_2_strike
+otm_call_2_closest = get_closest_strike(chain, "C", otm_call_2_strike)
 
-otm_call_2_min_diff = float("inf")
-otm_call_2_closest = None
-
-for strike in chain.calls["strike"]:
-    diff = abs(strike - otm_call_2_target)
-    if diff < otm_call_2_min_diff:
-        otm_call_2_min_diff = diff
-        otm_call_2_closest = strike
+otm_put_2_closest = get_closest_strike(chain, "P", otm_put_2_strike)
 
 
-#gets closest strike to 3-4 percent otm put
-otm_put_2_target = otm_put_2_strike
+#gets into OCC format
+atm_call_option_strike_OCC = f"{int(closest_atm_call * 1000):08d}"
+atm_put_option_strike_OCC  = f"{int(closest_atm_put * 1000):08d}"
 
-otm_put_2_min_diff = float("inf")
-otm_put_2_closest = None
+otm1_call_option_strike_OCC = f"{int(otm_call_1_closest * 1000):08d}"
+otm1_put_option_strike_OCC  = f"{int(otm_put_1_closest * 1000):08d}"
 
-for strike in chain.puts["strike"]:
-    diff = abs(strike - otm_put_2_target)
-    if diff < otm_put_2_min_diff:
-        otm_put_2_min_diff = diff
-        otm_put_2_closest = strike
-
-
-#gets the price in chain closest to estimated strike 
-atm_call_price = chain.calls[ chain.calls["strike"] == closest_atm_call ]["lastPrice"].iloc[0]
-
-atm_put_price = chain.puts[ chain.puts["strike"] == closest_atm_put ]["lastPrice"].iloc[0]
-
-
-otm_call_1_price = chain.calls[ chain.calls["strike"] == otm_call_1_closest ]["lastPrice"].iloc[0]
-otm_call_2_price = chain.calls[ chain.calls["strike"] == otm_call_2_closest ]["lastPrice"].iloc[0]
-
-otm_put_1_price  = chain.puts[ chain.puts["strike"] == otm_put_1_closest ]["lastPrice"].iloc[0]
-otm_put_2_price  = chain.puts[ chain.puts["strike"] == otm_put_2_closest ]["lastPrice"].iloc[0]
-
-#getting bid prices
-atm_call_bid = chain.calls[ chain.calls["strike"] == closest_atm_call ]["bid"].iloc[0]
-atm_put_bid = chain.puts[ chain.puts["strike"] == closest_atm_put ]["bid"].iloc[0]
-
-otm_call_1_bid = chain.calls[ chain.calls["strike"] == otm_call_1_closest ]["bid"].iloc[0]
-otm_call_2_bid = chain.calls[ chain.calls["strike"] == otm_call_2_closest ]["bid"].iloc[0]
-
-otm_put_1_bid  = chain.puts[ chain.puts["strike"] == otm_put_1_closest ]["bid"].iloc[0]
-otm_put_2_bid  = chain.puts[ chain.puts["strike"] == otm_put_2_closest ]["bid"].iloc[0]
-
-#getting ask prices
-atm_call_ask = chain.calls[ chain.calls["strike"] == closest_atm_call ]["ask"].iloc[0]
-atm_put_ask = chain.puts[ chain.puts["strike"] == closest_atm_put ]["ask"].iloc[0]
-
-otm_call_1_ask = chain.calls[ chain.calls["strike"] == otm_call_1_closest ]["ask"].iloc[0]
-otm_call_2_ask = chain.calls[ chain.calls["strike"] == otm_call_2_closest ]["ask"].iloc[0]
-
-
-otm_put_1_ask  = chain.puts[ chain.puts["strike"] == otm_put_1_closest ]["ask"].iloc[0]
-otm_put_2_ask  = chain.puts[ chain.puts["strike"] == otm_put_2_closest ]["ask"].iloc[0]
-#getting mids
-atm_call_mid = (atm_call_bid + atm_call_ask) / 2
-atm_put_mid = (atm_put_bid + atm_put_ask) / 2
-
-
-otm_call_1_mid = (otm_call_1_bid + otm_call_1_ask) / 2
-otm_call_2_mid = (otm_call_2_bid + otm_call_2_ask) / 2
-
-
-otm_put_1_mid = (otm_put_1_bid + otm_put_1_ask) / 2
-otm_put_2_mid = (otm_put_2_bid + otm_put_2_ask) / 2
+otm2_call_option_strike_OCC = f"{int(otm_call_2_closest * 1000):08d}"
+otm2_put_option_strike_OCC  = f"{int(otm_put_2_closest * 1000):08d}"
 
 
 
 
 
-#gets option volume 
-atm_call_volume = chain.calls[ chain.calls["strike"] == closest_atm_call ]["volume"].iloc[0]
-atm_put_volume = chain.puts[ chain.puts["strike"] == closest_atm_put ]["volume"].iloc[0]
 
 
 
-otm_call_1_volume = chain.calls[ chain.calls["strike"] == otm_call_1_closest ]["volume"].iloc[0]
-otm_call_2_volume = chain.calls[ chain.calls["strike"] == otm_call_2_closest ]["volume"].iloc[0]
-
-otm_put_1_volume  = chain.puts[ chain.puts["strike"] == otm_put_1_closest ]["volume"].iloc[0]
-otm_put_2_volume  = chain.puts[ chain.puts["strike"] == otm_put_2_closest ]["volume"].iloc[0]
 
 
-#implied volatility
-atm_call_iv = chain.calls[ chain.calls["strike"] == closest_atm_call ]["impliedVolatility"].iloc[0]
-atm_put_iv  = chain.puts[ chain.puts["strike"] == closest_atm_put ]["impliedVolatility"].iloc[0]
 
-otm_call_1_iv = chain.calls[ chain.calls["strike"] == otm_call_1_closest ]["impliedVolatility"].iloc[0]
-otm_call_2_iv = chain.calls[ chain.calls["strike"] == otm_call_2_closest ]["impliedVolatility"].iloc[0]
+atm_call_q = get_option_quote(chain, "C", closest_atm_call)
 
-otm_put_1_iv = chain.puts[ chain.puts["strike"] == otm_put_1_closest ]["impliedVolatility"].iloc[0]
-otm_put_2_iv = chain.puts[ chain.puts["strike"] == otm_put_2_closest ]["impliedVolatility"].iloc[0]
-
-#open interest
-
-atm_call_oi = chain.calls[ chain.calls["strike"] == closest_atm_call ]["openInterest"].iloc[0]
-atm_put_oi  = chain.puts[ chain.puts["strike"] == closest_atm_put ]["openInterest"].iloc[0]
-
-otm_call_1_oi = chain.calls[ chain.calls["strike"] == otm_call_1_closest ]["openInterest"].iloc[0]
-otm_call_2_oi = chain.calls[ chain.calls["strike"] == otm_call_2_closest ]["openInterest"].iloc[0]
-
-otm_put_1_oi = chain.puts[ chain.puts["strike"] == otm_put_1_closest ]["openInterest"].iloc[0]
-otm_put_2_oi = chain.puts[ chain.puts["strike"] == otm_put_2_closest ]["openInterest"].iloc[0]
+atm_call_price       = atm_call_q["last_price"]
+atm_call_bid         = atm_call_q["bid"]
+atm_call_ask         = atm_call_q["ask"]
+atm_call_mid         = atm_call_q["mid"]
+atm_call_volume      = atm_call_q["volume"]
+atm_call_iv          = atm_call_q["iv"]
+atm_call_oi          = atm_call_q["oi"]
+atm_call_spread      = atm_call_q["spread"]
+atm_call_spread_pct  = atm_call_q["spread_pct"]
 
 
-#spread
 
-atm_call_spread = atm_call_ask - atm_call_bid
-atm_put_spread  = atm_put_ask - atm_put_bid
+# ATM PUT
+atm_put_q = get_option_quote(chain, "P", closest_atm_put)
 
-otm_call_1_spread = otm_call_1_ask - otm_call_1_bid
-otm_call_2_spread = otm_call_2_ask - otm_call_2_bid
+atm_put_price       = atm_put_q["last_price"]
+atm_put_bid         = atm_put_q["bid"]
+atm_put_ask         = atm_put_q["ask"]
+atm_put_mid         = atm_put_q["mid"]
+atm_put_volume      = atm_put_q["volume"]
+atm_put_iv          = atm_put_q["iv"]
+atm_put_oi          = atm_put_q["oi"]
+atm_put_spread      = atm_put_q["spread"]
+atm_put_spread_pct  = atm_put_q["spread_pct"]
 
-otm_put_1_spread = otm_put_1_ask - otm_put_1_bid
-otm_put_2_spread = otm_put_2_ask - otm_put_2_bid
 
-#spread percent
+# OTM_1 CALL
+otm1_call_q = get_option_quote(chain, "C", otm_call_1_closest)
 
-atm_call_spread_pct = (atm_call_spread / atm_call_mid) * 100
-atm_put_spread_pct  = (atm_put_spread  / atm_put_mid)  * 100
+otm_call_1_price      = otm1_call_q["last_price"]
+otm_call_1_bid        = otm1_call_q["bid"]
+otm_call_1_ask        = otm1_call_q["ask"]
+otm_call_1_mid        = otm1_call_q["mid"]
+otm_call_1_volume     = otm1_call_q["volume"]
+otm_call_1_iv         = otm1_call_q["iv"]
+otm_call_1_oi         = otm1_call_q["oi"]
+otm_call_1_spread     = otm1_call_q["spread"]
+otm_call_1_spread_pct = otm1_call_q["spread_pct"]
 
-otm_call_1_spread_pct = (otm_call_1_spread / otm_call_1_mid) * 100
-otm_call_2_spread_pct = (otm_call_2_spread / otm_call_2_mid) * 100
 
-otm_put_1_spread_pct = (otm_put_1_spread / otm_put_1_mid) * 100
-otm_put_2_spread_pct = (otm_put_2_spread / otm_put_2_mid) * 100
+
+# OTM_1 PUT
+otm1_put_q = get_option_quote(chain, "P", otm_put_1_closest)
+
+otm_put_1_price      = otm1_put_q["last_price"]
+otm_put_1_bid        = otm1_put_q["bid"]
+otm_put_1_ask        = otm1_put_q["ask"]
+otm_put_1_mid        = otm1_put_q["mid"]
+otm_put_1_volume     = otm1_put_q["volume"]
+otm_put_1_iv         = otm1_put_q["iv"]
+otm_put_1_oi         = otm1_put_q["oi"]
+otm_put_1_spread     = otm1_put_q["spread"]
+otm_put_1_spread_pct = otm1_put_q["spread_pct"]
+
+
+
+
+# OTM_2 CALL
+otm2_call_q = get_option_quote(chain, "C", otm_call_2_closest)
+
+otm_call_2_price      = otm2_call_q["last_price"]
+otm_call_2_bid        = otm2_call_q["bid"]
+otm_call_2_ask        = otm2_call_q["ask"]
+otm_call_2_mid        = otm2_call_q["mid"]
+otm_call_2_volume     = otm2_call_q["volume"]
+otm_call_2_iv         = otm2_call_q["iv"]
+otm_call_2_oi         = otm2_call_q["oi"]
+otm_call_2_spread     = otm2_call_q["spread"]
+otm_call_2_spread_pct = otm2_call_q["spread_pct"]
+
+
+# OTM_2 PUT
+otm2_put_q = get_option_quote(chain, "P", otm_put_2_closest)
+
+otm_put_2_price      = otm2_put_q["last_price"]
+otm_put_2_bid        = otm2_put_q["bid"]
+otm_put_2_ask        = otm2_put_q["ask"]
+otm_put_2_mid        = otm2_put_q["mid"]
+otm_put_2_volume     = otm2_put_q["volume"]
+otm_put_2_iv         = otm2_put_q["iv"]
+otm_put_2_oi         = otm2_put_q["oi"]
+otm_put_2_spread     = otm2_put_q["spread"]
+otm_put_2_spread_pct = otm2_put_q["spread_pct"]
+
+
+
+
+
+
+
+
 
 
 
@@ -263,7 +218,7 @@ expiration = exp
 #snapshot id
 snapshot_id = f"{symbol}_{timestamp}"
 exp_date = datetime.datetime.strptime(exp, "%Y-%m-%d").date()
-days_till_expiry = (exp_date - today).days
+days_till_expiry = (exp_date - now_dateobject).days
 
 if days_till_expiry <= 1:
     time_decay_bucket = "EXTREME"
@@ -276,6 +231,15 @@ else:
 
 
 
+option_symbol_atm_call = f"{symbol}{exp_date}C{atm_call_option_strike_OCC}"
+option_symbol_atm_put  = f"{symbol}{exp_date}P{atm_put_option_strike_OCC}"
+
+option_symbol_otm1_call = f"{symbol}{exp_date}C{otm1_call_option_strike_OCC}"
+option_symbol_otm1_put  = f"{symbol}{exp_date}P{otm1_put_option_strike_OCC}"
+
+option_symbol_otm2_call = f"{symbol}{exp_date}C{otm2_call_option_strike_OCC}"
+option_symbol_otm2_put  = f"{symbol}{exp_date}P{otm2_put_option_strike_OCC}"
+
 
 
 #connecting to database
@@ -285,22 +249,12 @@ con = duckdb.connect("options_data.db")
 
 con.execute("""
 CREATE TABLE IF NOT EXISTS option_snapshots (
-    snapshot_id TEXT,
-    timestamp TIMESTAMP,
-    symbol TEXT,
-    strike DOUBLE,
     call_put TEXT,
-    days_to_expiry INTEGER,
     moneyness_bucket TEXT,
-    bid DOUBLE,
-    ask DOUBLE,
     mid DOUBLE,
-    volume INTEGER,
-    open_interest INTEGER,
+    volume INTEGER,,
     iv DOUBLE,
-    spread DOUBLE,
-    spread_pct DOUBLE,
-    time_decay_bucket TEXT
+        
 );
 """)
 
@@ -310,287 +264,125 @@ DELETE FROM option_snapshots
 WHERE timestamp < NOW() - INTERVAL '3 days';
 """)
 
-
-
 con.execute("""
 INSERT INTO option_snapshots (
-    snapshot_id,
-    timestamp,
-    symbol,
-    strike,
     call_put,
-    days_to_expiry,
     moneyness_bucket,
-    bid,
-    ask,
     mid,
     volume,
-    open_interest,
-    iv,
-    spread,
-    spread_pct,
-    time_decay_bucket
+    iv
 )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    (?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?);
 """, [py(x) for x in [
     # ATM CALL
-    snapshot_id, timestamp, symbol, closest_atm_call, "C", days_till_expiry, "ATM",
-    atm_call_bid, atm_call_ask, atm_call_mid, atm_call_volume, atm_call_oi,
-    atm_call_iv, atm_call_spread, atm_call_spread_pct, time_decay_bucket,
+    "C", "ATM",   atm_call_mid, atm_call_volume, atm_call_iv,
 
     # ATM PUT
-    snapshot_id, timestamp, symbol, closest_atm_put, "P", days_till_expiry, "ATM",
-    atm_put_bid, atm_put_ask, atm_put_mid, atm_put_volume, atm_put_oi,
-    atm_put_iv, atm_put_spread, atm_put_spread_pct, time_decay_bucket,
+    "P", "ATM",   atm_put_mid, atm_put_volume, atm_put_iv,
 
     # OTM CALL 1
-    snapshot_id, timestamp, symbol, otm_call_1_closest, "C", days_till_expiry, "OTM_1",
-    otm_call_1_bid, otm_call_1_ask, otm_call_1_mid, otm_call_1_volume, otm_call_1_oi,
-    otm_call_1_iv, otm_call_1_spread, otm_call_1_spread_pct, time_decay_bucket,
+    "C", "OTM_1", otm_call_1_mid, otm_call_1_volume, otm_call_1_iv,
 
     # OTM PUT 1
-    snapshot_id, timestamp, symbol, otm_put_1_closest, "P", days_till_expiry, "OTM_1",
-    otm_put_1_bid, otm_put_1_ask, otm_put_1_mid, otm_put_1_volume, otm_put_1_oi,
-    otm_put_1_iv, otm_put_1_spread, otm_put_1_spread_pct, time_decay_bucket,
+    "P", "OTM_1", otm_put_1_mid, otm_put_1_volume, otm_put_1_iv,
 
     # OTM CALL 2
-    snapshot_id, timestamp, symbol, otm_call_2_closest, "C", days_till_expiry, "OTM_2",
-    otm_call_2_bid, otm_call_2_ask, otm_call_2_mid, otm_call_2_volume, otm_call_2_oi,
-    otm_call_2_iv, otm_call_2_spread, otm_call_2_spread_pct, time_decay_bucket,
+    "C", "OTM_2", otm_call_2_mid, otm_call_2_volume, otm_call_2_iv,
 
     # OTM PUT 2
-    snapshot_id, timestamp, symbol, otm_put_2_closest, "P", days_till_expiry, "OTM_2",
-    otm_put_2_bid, otm_put_2_ask, otm_put_2_mid, otm_put_2_volume, otm_put_2_oi,
-    otm_put_2_iv, otm_put_2_spread, otm_put_2_spread_pct, time_decay_bucket
+    "P", "OTM_2", otm_put_2_mid, otm_put_2_volume, otm_put_2_iv,
 ]])
 
 
 
 
 
-# getting all mid option premiums for z-score calculation price
-# ATM CALLS
-# ATM CALLS
-atm_call_df = con.execute(f"""
-    SELECT *
-    FROM option_snapshots
-    WHERE moneyness_bucket = 'ATM'
-      AND call_put = 'C'
-      AND time_decay_bucket = '{time_decay_bucket}'
-""").df()
-
-atm_call_mean = atm_call_df["mid"].mean()
-atm_call_std = atm_call_df["mid"].std()
-atm_call_z = (atm_call_mid - atm_call_mean) / atm_call_std
-
-
-
-# ATM PUTS
-atm_put_df = con.execute(f"""
-    SELECT *
-    FROM option_snapshots
-    WHERE moneyness_bucket = 'ATM'
-      AND call_put = 'P'
-      AND time_decay_bucket = '{time_decay_bucket}'
-""").df()
-
-atm_put_mean = atm_put_df["mid"].mean()
-atm_put_std = atm_put_df["mid"].std()
-atm_put_z = (atm_put_mid - atm_put_mean) / atm_put_std
-
-
-
-
-# OTM_1 CALLS
-otm1_call_df = con.execute(f"""
-    SELECT *
-    FROM option_snapshots
-    WHERE moneyness_bucket = 'OTM_1'
-      AND call_put = 'C'
-      AND time_decay_bucket = '{time_decay_bucket}'
-""").df()
-
-otm1_call_mean = otm1_call_df["mid"].mean()
-otm1_call_std = otm1_call_df["mid"].std()
-otm_call_1_z = (otm_call_1_mid - otm1_call_mean) / otm1_call_std
-
-
-
-
-# OTM_1 PUTS
-otm1_put_df = con.execute(f"""
-    SELECT *
-    FROM option_snapshots
-    WHERE moneyness_bucket = 'OTM_1'
-      AND call_put = 'P'
-      AND time_decay_bucket = '{time_decay_bucket}'
-""").df()
-
-otm1_put_mean = otm1_put_df["mid"].mean()
-otm1_put_std = otm1_put_df["mid"].std()
-otm_put_1_z = (otm_put_1_mid - otm1_put_mean) / otm1_put_std
-
-
-
-
-# OTM_2 CALLS
-otm2_call_df = con.execute(f"""
-    SELECT *
-    FROM option_snapshots
-    WHERE moneyness_bucket = 'OTM_2'
-      AND call_put = 'C'
-      AND time_decay_bucket = '{time_decay_bucket}'
-""").df()
-
-otm2_call_mean = otm2_call_df["mid"].mean()
-otm2_call_std = otm2_call_df["mid"].std()
-otm_call_2_z = (otm_call_2_mid - otm2_call_mean) / otm2_call_std
-
-
-
-# OTM_2 PUTS
-otm2_put_df = con.execute(f"""
-    SELECT *
-    FROM option_snapshots
-    WHERE moneyness_bucket = 'OTM_2'
-      AND call_put = 'P'
-      AND time_decay_bucket = '{time_decay_bucket}'
-""").df()
-
-otm2_put_mean = otm2_put_df["mid"].mean()
-otm2_put_std = otm2_put_df["mid"].std()
-otm_put_2_z = (otm_put_2_mid - otm2_put_mean) / otm2_put_std
 
 
 
 
 
 
-#volume z-score
-
-#at the money call
-atm_call_vol_mean = atm_call_df["volume"].mean()
-atm_call_vol_std  = atm_call_df["volume"].std()
-atm_call_vol_z    = (atm_call_volume - atm_call_vol_mean) / atm_call_vol_std
-
-
-#at the money put
-atm_put_vol_mean = atm_put_df["volume"].mean()
-atm_put_vol_std  = atm_put_df["volume"].std()
-atm_put_vol_z    = (atm_put_volume - atm_put_vol_mean) / atm_put_vol_std
-
-#out money 1 call
-otm1_call_vol_mean = otm1_call_df["volume"].mean()
-otm1_call_vol_std  = otm1_call_df["volume"].std()
-otm_call_1_vol_z   = (otm_call_1_volume - otm1_call_vol_mean) / otm1_call_vol_std
+atm_call_z, atm_call_vol_z, atm_call_iv_z = compute_z_scores_for_bucket(
+    con,
+    bucket="ATM",
+    call_put="C",
+    time_decay_bucket=time_decay_bucket,
+    current_mid=atm_call_mid,
+    current_volume=atm_call_volume,
+    current_iv=atm_call_iv,
+)
 
 
+atm_put_z, atm_put_vol_z, atm_put_iv_z = compute_z_scores_for_bucket(
+    con,
+    bucket="ATM",
+    call_put="P",
+    time_decay_bucket=time_decay_bucket,
+    current_mid=atm_put_mid,
+    current_volume=atm_put_volume,
+    current_iv=atm_put_iv,
+)
 
 
-#out money 1 put 
-otm1_put_vol_mean = otm1_put_df["volume"].mean()
-otm1_put_vol_std  = otm1_put_df["volume"].std()
-otm_put_1_vol_z   = (otm_put_1_volume - otm1_put_vol_mean) / otm1_put_vol_std
-
-#out money call 2
-otm2_call_vol_mean = otm2_call_df["volume"].mean()
-otm2_call_vol_std  = otm2_call_df["volume"].std()
-otm_call_2_vol_z   = (otm_call_2_volume - otm2_call_vol_mean) / otm2_call_vol_std
-
-#out money put 2
-otm2_put_vol_mean = otm2_put_df["volume"].mean()
-otm2_put_vol_std  = otm2_put_df["volume"].std()
-otm_put_2_vol_z   = (otm_put_2_volume - otm2_put_vol_mean) / otm2_put_vol_std
+otm_call_1_z, otm_call_1_vol_z, otm_call_1_iv_z = compute_z_scores_for_bucket(
+    con,
+    bucket="OTM_1",
+    call_put="C",
+    time_decay_bucket=time_decay_bucket,
+    current_mid=otm_call_1_mid,
+    current_volume=otm_call_1_volume,
+    current_iv=otm_call_1_iv,
+)
 
 
-#implied volatiily iv z-score
 
-# at money call
-atm_call_iv_mean = atm_call_df["iv"].mean()
-atm_call_iv_std  = atm_call_df["iv"].std()
-atm_call_iv_z    = (atm_call_iv - atm_call_iv_mean) / atm_call_iv_std
-
-
-# at money put
-atm_put_iv_mean = atm_put_df["iv"].mean()
-atm_put_iv_std  = atm_put_df["iv"].std()
-atm_put_iv_z    = (atm_put_iv - atm_put_iv_mean) / atm_put_iv_std
-
-# out money 1 call
-otm1_call_iv_mean = otm1_call_df["iv"].mean()
-otm1_call_iv_std  = otm1_call_df["iv"].std()
-otm_call_1_iv_z   = (otm_call_1_iv - otm1_call_iv_mean) / otm1_call_iv_std
+otm_put_1_z, otm_put_1_vol_z, otm_put_1_iv_z = compute_z_scores_for_bucket(
+    con,
+    bucket="OTM_1",
+    call_put="P",
+    time_decay_bucket=time_decay_bucket,
+    current_mid=otm_put_1_mid,
+    current_volume=otm_put_1_volume,
+    current_iv=otm_put_1_iv,
+)
 
 
-#out money put 1 
-otm1_put_iv_mean = otm1_put_df["iv"].mean()
-otm1_put_iv_std  = otm1_put_df["iv"].std()
-otm_put_1_iv_z   = (otm_put_1_iv - otm1_put_iv_mean) / otm1_put_iv_std
-
-# out money call 2
-otm2_call_iv_mean = otm2_call_df["iv"].mean()
-otm2_call_iv_std  = otm2_call_df["iv"].std()
-otm_call_2_iv_z   = (otm_call_2_iv - otm2_call_iv_mean) / otm2_call_iv_std
-
-# out money put 2 
-otm2_put_iv_mean = otm2_put_df["iv"].mean()
-otm2_put_iv_std  = otm2_put_df["iv"].std()
-otm_put_2_iv_z   = (otm_put_2_iv - otm2_put_iv_mean) / otm2_put_iv_std
+otm_call_2_z, otm_call_2_vol_z, otm_call_2_iv_z = compute_z_scores_for_bucket(
+    con,
+    bucket="OTM_2",
+    call_put="C",
+    time_decay_bucket=time_decay_bucket,
+    current_mid=otm_call_2_mid,
+    current_volume=otm_call_2_volume,
+    current_iv=otm_call_2_iv,
+)
 
 
-# ATM CALL triple signal
-if (atm_call_z > 2) and (atm_call_vol_z > 1.5) and (atm_call_iv_z > 1.5):
-    message = (
-        "ATM CALL TRIPLE SIGNAL FIRED!\n"
-        "ACTION: BUY 🔥"
-    )
-    send_text(message)
+otm_put_2_z, otm_put_2_vol_z, otm_put_2_iv_z = compute_z_scores_for_bucket(
+    con,
+    bucket="OTM_2",
+    call_put="P",
+    time_decay_bucket=time_decay_bucket,
+    current_mid=otm_put_2_mid,
+    current_volume=otm_put_2_volume,
+    current_iv=otm_put_2_iv,
+)
 
-# ATM PUT triple signal
-if (atm_put_z > 2) and (atm_put_vol_z > 1.5) and (atm_put_iv_z > 1.5):
-    message = (
-        "ATM PUT TRIPLE SIGNAL FIRED!\n"
-        "ACTION: BUY 🔥"
-    )
-    send_text(message)
 
-# OTM_1 CALL triple signal
-if (otm_call_1_z > 2) and (otm_call_1_vol_z > 1.5) and (otm_call_1_iv_z > 1.5):
-    message = (
-        "OTM_1 CALL TRIPLE SIGNAL FIRED!\n"
-        "ACTION: BUY 🔥"
-    )
-    send_text(message)
 
-# OTM_1 PUT triple signal
-if (otm_put_1_z > 2) and (otm_put_1_vol_z > 1.5) and (otm_put_1_iv_z > 1.5):
-    message = (
-        "OTM_1 PUT TRIPLE SIGNAL FIRED!\n"
-        "ACTION: BUY 🔥"
-    )
-    send_text(message)
 
-# OTM_2 CALL triple signal
-if (otm_call_2_z > 2) and (otm_call_2_vol_z > 1.5) and (otm_call_2_iv_z > 1.5):
-    message = (
-        "OTM_2 CALL TRIPLE SIGNAL FIRED!\n"
-        "ACTION: BUY 🔥"
-    )
-    send_text(message)
 
-# OTM_2 PUT triple signal
-if (otm_put_2_z > 2) and (otm_put_2_vol_z > 1.5) and (otm_put_2_iv_z > 1.5):
-    message = (
-        "OTM_2 PUT TRIPLE SIGNAL FIRED!\n"
-        "ACTION: BUY 🔥"
-    )
-    send_text(message)
+
+
+
+
 
 
 
@@ -599,9 +391,11 @@ CREATE TABLE IF NOT EXISTS option_snapshots_enriched (
     snapshot_id TEXT,
     timestamp TIMESTAMP,
     symbol TEXT,
+    option_symbol TEXT,      -- OCC option symbol
     strike DOUBLE,
     call_put TEXT,
     days_to_expiry INTEGER,
+    expiration_date DATE,
     moneyness_bucket TEXT,
     bid DOUBLE,
     ask DOUBLE,
@@ -614,9 +408,26 @@ CREATE TABLE IF NOT EXISTS option_snapshots_enriched (
     time_decay_bucket TEXT,
     mid_z DOUBLE,
     volume_z DOUBLE,
-    iv_z DOUBLE
+    iv_z DOUBLE,
+
+    -- ==== SIGNAL LOGGING (BOOLEAN) ====
+    atm_call_signal BOOLEAN,
+    atm_put_signal  BOOLEAN,
+    otm1_call_signal BOOLEAN,
+    otm1_put_signal  BOOLEAN,
+    otm2_call_signal BOOLEAN,
+    otm2_put_signal  BOOLEAN,
+
+    -- ==== RETURN LABELS ====
+    opt_ret_10m DOUBLE,
+    opt_ret_1h DOUBLE,
+    opt_ret_eod DOUBLE,
+    opt_ret_next_open DOUBLE,
+    opt_ret_1d DOUBLE,
+    opt_ret_exp DOUBLE
 );
 """)
+
 
 
 
@@ -631,9 +442,11 @@ INSERT INTO option_snapshots_enriched (
     snapshot_id,
     timestamp,
     symbol,
+    option_symbol,
     strike,
     call_put,
     days_to_expiry,
+    expiration_date,
     moneyness_bucket,
     bid,
     ask,
@@ -646,52 +459,113 @@ INSERT INTO option_snapshots_enriched (
     time_decay_bucket,
     mid_z,
     volume_z,
-    iv_z
+    iv_z,
+
+    -- SIGNAL LOGGING
+    atm_call_signal,
+    atm_put_signal,
+    otm1_call_signal,
+    otm1_put_signal,
+    otm2_call_signal,
+    otm2_put_signal,
+
+    -- RETURN LABELS
+    opt_ret_10m,
+    opt_ret_1h,
+    opt_ret_eod,
+    opt_ret_next_open,
+    opt_ret_1d,
+    opt_ret_exp
 )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+     NULL, NULL, NULL, NULL, NULL, NULL,
+     NULL, NULL, NULL, NULL, NULL, NULL),
+
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+     NULL, NULL, NULL, NULL, NULL, NULL,
+     NULL, NULL, NULL, NULL, NULL, NULL),
+
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+     NULL, NULL, NULL, NULL, NULL, NULL,
+     NULL, NULL, NULL, NULL, NULL, NULL),
+
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+     NULL, NULL, NULL, NULL, NULL, NULL,
+     NULL, NULL, NULL, NULL, NULL, NULL),
+
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+     NULL, NULL, NULL, NULL, NULL, NULL,
+     NULL, NULL, NULL, NULL, NULL, NULL),
+
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+     NULL, NULL, NULL, NULL, NULL, NULL,
+     NULL, NULL, NULL, NULL, NULL, NULL)
 """, [py(x) for x in [
-    # ATM CALL
-    snapshot_id, timestamp, symbol, closest_atm_call, "C", days_till_expiry, "ATM",
-    atm_call_bid, atm_call_ask, atm_call_mid, atm_call_volume, atm_call_oi,
-    atm_call_iv, atm_call_spread, atm_call_spread_pct, time_decay_bucket,
+
+    # ===== ATM CALL =====
+    snapshot_id, timestamp, symbol, option_symbol_atm_call, closest_atm_call, "C",
+    days_till_expiry, exp_date,
+    "ATM",
+    atm_call_bid, atm_call_ask, atm_call_mid,
+    atm_call_volume, atm_call_oi,
+    atm_call_iv, atm_call_spread, atm_call_spread_pct,
+    time_decay_bucket,
     atm_call_z, atm_call_vol_z, atm_call_iv_z,
 
-    # ATM PUT
-    snapshot_id, timestamp, symbol, closest_atm_put, "P", days_till_expiry, "ATM",
-    atm_put_bid, atm_put_ask, atm_put_mid, atm_put_volume, atm_put_oi,
-    atm_put_iv, atm_put_spread, atm_put_spread_pct, time_decay_bucket,
+    # ===== ATM PUT =====
+    snapshot_id, timestamp, symbol, option_symbol_atm_put, closest_atm_put, "P",
+    days_till_expiry, exp_date,
+    "ATM",
+    atm_put_bid, atm_put_ask, atm_put_mid,
+    atm_put_volume, atm_put_oi,
+    atm_put_iv, atm_put_spread, atm_put_spread_pct,
+    time_decay_bucket,
     atm_put_z, atm_put_vol_z, atm_put_iv_z,
 
-    # OTM CALL 1
-    snapshot_id, timestamp, symbol, otm_call_1_closest, "C", days_till_expiry, "OTM_1",
-    otm_call_1_bid, otm_call_1_ask, otm_call_1_mid, otm_call_1_volume, otm_call_1_oi,
-    otm_call_1_iv, otm_call_1_spread, otm_call_1_spread_pct, time_decay_bucket,
+    # ===== OTM CALL 1 =====
+    snapshot_id, timestamp, symbol, option_symbol_otm1_call, otm_call_1_closest, "C",
+    days_till_expiry, exp_date,
+    "OTM_1",
+    otm_call_1_bid, otm_call_1_ask, otm_call_1_mid,
+    otm_call_1_volume, otm_call_1_oi,
+    otm_call_1_iv, otm_call_1_spread, otm_call_1_spread_pct,
+    time_decay_bucket,
     otm_call_1_z, otm_call_1_vol_z, otm_call_1_iv_z,
 
-    # OTM PUT 1
-    snapshot_id, timestamp, symbol, otm_put_1_closest, "P", days_till_expiry, "OTM_1",
-    otm_put_1_bid, otm_put_1_ask, otm_put_1_mid, otm_put_1_volume, otm_put_1_oi,
-    otm_put_1_iv, otm_put_1_spread, otm_put_1_spread_pct, time_decay_bucket,
+    # ===== OTM PUT 1 =====
+    snapshot_id, timestamp, symbol, option_symbol_otm1_put, otm_put_1_closest, "P",
+    days_till_expiry, exp_date,
+    "OTM_1",
+    otm_put_1_bid, otm_put_1_ask, otm_put_1_mid,
+    otm_put_1_volume, otm_put_1_oi,
+    otm_put_1_iv, otm_put_1_spread, otm_put_1_spread_pct,
+    time_decay_bucket,
     otm_put_1_z, otm_put_1_vol_z, otm_put_1_iv_z,
 
-    # OTM CALL 2
-    snapshot_id, timestamp, symbol, otm_call_2_closest, "C", days_till_expiry, "OTM_2",
-    otm_call_2_bid, otm_call_2_ask, otm_call_2_mid, otm_call_2_volume, otm_call_2_oi,
-    otm_call_2_iv, otm_call_2_spread, otm_call_2_spread_pct, time_decay_bucket,
+    # ===== OTM CALL 2 =====
+    snapshot_id, timestamp, symbol, option_symbol_otm2_call, otm_call_2_closest, "C",
+    days_till_expiry, exp_date,
+    "OTM_2",
+    otm_call_2_bid, otm_call_2_ask, otm_call_2_mid,
+    otm_call_2_volume, otm_call_2_oi,
+    otm_call_2_iv, otm_call_2_spread, otm_call_2_spread_pct,
+    time_decay_bucket,
     otm_call_2_z, otm_call_2_vol_z, otm_call_2_iv_z,
 
-    # OTM PUT 2
-    snapshot_id, timestamp, symbol, otm_put_2_closest, "P", days_till_expiry, "OTM_2",
-    otm_put_2_bid, otm_put_2_ask, otm_put_2_mid, otm_put_2_volume, otm_put_2_oi,
-    otm_put_2_iv, otm_put_2_spread, otm_put_2_spread_pct, time_decay_bucket,
+    # ===== OTM PUT 2 =====
+    snapshot_id, timestamp, symbol, option_symbol_otm2_put, otm_put_2_closest, "P",
+    days_till_expiry, exp_date,
+    "OTM_2",
+    otm_put_2_bid, otm_put_2_ask, otm_put_2_mid,
+    otm_put_2_volume, otm_put_2_oi,
+    otm_put_2_iv, otm_put_2_spread, otm_put_2_spread_pct,
+    time_decay_bucket,
     otm_put_2_z, otm_put_2_vol_z, otm_put_2_iv_z
 ]])
+
+ 
+
 
 
 
