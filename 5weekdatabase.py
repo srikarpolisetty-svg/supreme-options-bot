@@ -193,6 +193,11 @@ option_symbol_otm2_put  = f"{symbol}{exp_date}P{otm2_put_option_strike_OCC}"
 con = duckdb.connect("options_data.db")
 
 con.execute("""
+DROP TABLE IF EXISTS option_snapshots_5w;
+""")
+
+
+con.execute("""
 CREATE TABLE IF NOT EXISTS option_snapshots_5w (
     call_put TEXT,
     moneyness_bucket TEXT,
@@ -307,6 +312,9 @@ otm_put_2_z, otm_put_2_vol_z, otm_put_2_iv_z = compute_z_scores_for_bucket(
 )
 
 # ---------- STEP 7: Insert into enriched 5w table ----------
+con.execute("""
+DROP TABLE IF EXISTS option_snapshots_enriched_5w;
+""")
 
 con.execute("""
 CREATE TABLE IF NOT EXISTS option_snapshots_enriched_5w (
