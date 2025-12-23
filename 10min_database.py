@@ -255,7 +255,7 @@ CREATE TABLE IF NOT EXISTS option_snapshots (
     call_put TEXT,
     moneyness_bucket TEXT,
     mid DOUBLE,
-    volume INTEGER,,
+    volume INTEGER,
     iv DOUBLE,
         
 );
