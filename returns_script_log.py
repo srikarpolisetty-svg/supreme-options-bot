@@ -1,6 +1,12 @@
 from returns_script_functions import fill_return_label
 
 
+
+
+import os
+print("cwd:", os.getcwd())
+print("db_path:", os.path.abspath("options_data.db"))
+
 fill_return_label(
     "opt_ret_10m",
     "f.timestamp >= base.timestamp + INTERVAL 10 MINUTE"
