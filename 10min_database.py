@@ -252,14 +252,15 @@ DROP TABLE IF EXISTS option_snapshots;
 
 con.execute("""
 CREATE TABLE IF NOT EXISTS option_snapshots (
+    timestamp TIMESTAMP,
     call_put TEXT,
     moneyness_bucket TEXT,
     mid DOUBLE,
     volume INTEGER,
-    iv DOUBLE,
-        
+    iv DOUBLE
 );
 """)
+
 
 # keep only recent 2–3 days
 con.execute("""
@@ -269,6 +270,7 @@ WHERE timestamp < NOW() - INTERVAL '3 days';
 
 con.execute("""
 INSERT INTO option_snapshots (
+    timestamp,
     call_put,
     moneyness_bucket,
     mid,
@@ -276,35 +278,31 @@ INSERT INTO option_snapshots (
     iv
 )
 VALUES
-    (?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?);
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?);
 """, [py(x) for x in [
     # ATM CALL
-    "C", "ATM",   atm_call_mid, atm_call_volume, atm_call_iv,
+    timestamp, "C", "ATM",   atm_call_mid, atm_call_volume, atm_call_iv,
 
     # ATM PUT
-    "P", "ATM",   atm_put_mid, atm_put_volume, atm_put_iv,
+    timestamp, "P", "ATM",   atm_put_mid, atm_put_volume, atm_put_iv,
 
     # OTM CALL 1
-    "C", "OTM_1", otm_call_1_mid, otm_call_1_volume, otm_call_1_iv,
+    timestamp, "C", "OTM_1", otm_call_1_mid, otm_call_1_volume, otm_call_1_iv,
 
     # OTM PUT 1
-    "P", "OTM_1", otm_put_1_mid, otm_put_1_volume, otm_put_1_iv,
+    timestamp, "P", "OTM_1", otm_put_1_mid, otm_put_1_volume, otm_put_1_iv,
 
     # OTM CALL 2
-    "C", "OTM_2", otm_call_2_mid, otm_call_2_volume, otm_call_2_iv,
+    timestamp, "C", "OTM_2", otm_call_2_mid, otm_call_2_volume, otm_call_2_iv,
 
     # OTM PUT 2
-    "P", "OTM_2", otm_put_2_mid, otm_put_2_volume, otm_put_2_iv,
+    timestamp, "P", "OTM_2", otm_put_2_mid, otm_put_2_volume, otm_put_2_iv,
 ]])
-
-
-
-
 
 
 
