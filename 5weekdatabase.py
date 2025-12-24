@@ -190,9 +190,7 @@ option_symbol_otm2_put  = f"{symbol}{exp_date}P{otm2_put_option_strike_OCC}"
 
 con = duckdb.connect("options_data.db")
 
-con.execute("""
-DROP TABLE IF EXISTS option_snapshots_raw_5w
-""")
+
 
 con.execute("""
 CREATE TABLE IF NOT EXISTS option_snapshots_raw_5w (
@@ -376,9 +374,7 @@ otm_put_2_z, otm_put_2_vol_z, otm_put_2_iv_z = compute_z_scores_for_bucket_5w(
 )
 
 
-con.execute("""
-DROP TABLE IF EXISTS option_snapshots_enriched_5w
-""")
+
 
 
 con.execute("""
@@ -527,9 +523,7 @@ VALUES
     None, None, None, None, None, None
 ]])
 
-con.execute("""
-DROP TABLE IF EXISTS option_snapshots_execution_signals_5w
-""")
+
 
 con.execute("""
 CREATE TABLE IF NOT EXISTS option_snapshots_execution_signals_5w (
