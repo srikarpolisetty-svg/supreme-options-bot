@@ -252,6 +252,9 @@ con = duckdb.connect("options_data.db")
 
 
 
+con.execute("""
+DROP TABLE IF EXISTS option_snapshots_raw
+""")
 
 
 
@@ -440,7 +443,9 @@ otm_put_2_z, otm_put_2_vol_z, otm_put_2_iv_z = compute_z_scores_for_bucket(
     current_iv=otm_put_2_iv,
 )
 
-
+con.execute("""
+DROP TABLE IF EXISTS option_snapshots_enriched
+""")
 con.execute("""
 CREATE TABLE IF NOT EXISTS option_snapshots_enriched (
     snapshot_id TEXT,
@@ -588,7 +593,9 @@ VALUES
 
 
 
-
+con.execute("""
+DROP TABLE IF EXISTS option_snapshots_execution_signals
+""")
 
 con.execute("""
 CREATE TABLE IF NOT EXISTS option_snapshots_execution_signals (

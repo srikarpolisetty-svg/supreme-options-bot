@@ -1,9 +1,12 @@
 import duckdb 
+from backtesting_functions import backtest_signal
 from backtesting_functions import backtest_returns
+from backtesting_functions import backtest_returns_5w
 
-con = duckdb.connect("options.duckdb")  # change if needed
+con = duckdb.connect("options.duckdb", read_only=True)
 
-Atmcalldf = backtest_returns(
+
+Atmcalldf = backtest_signal(
     con,
     moneyness="ATM",
     call_put="C",
@@ -15,7 +18,7 @@ print(Atmcalldf)
 
 
 
-Atmputdf = backtest_returns(
+Atmputdf = backtest_signal(
     con,
     moneyness="ATM",
     call_put="P",
@@ -23,3 +26,24 @@ Atmputdf = backtest_returns(
 )
 
 print(Atmputdf)
+
+
+
+
+
+Atmput_general_df = backtest_returns(
+    con,
+    moneyness="ATM",
+    call_put="P",
+) 
+
+print (Atmput_general_df)
+
+
+Atmput_general_df_5w = backtest_returns_5w(
+    con,
+    moneyness="ATM",
+    call_put="P",
+) 
+
+print(Atmput_general_df_5w)
