@@ -15,6 +15,7 @@ con = duckdb.connect("options_data.db")
 
 
 
+
 groups = load_all_groups(con)
 
 
@@ -107,24 +108,6 @@ atm_put_signal = (
     z_volume_atm_put_2_3day > 1.5 and
     z_iv_atm_put_2_3day     > 1.5
 )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

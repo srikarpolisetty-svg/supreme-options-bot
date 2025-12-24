@@ -83,7 +83,7 @@ def get_option_metrics(groups, key: str):
 def update_signal(con, short_snapshot_id, long_snapshot_id, call_put, bucket, signal_column):
     # Update short-term table
     con.execute(f"""
-        UPDATE option_snapshots_enriched
+        UPDATE option_snapshots_execution_signals
         SET {signal_column} = TRUE
         WHERE snapshot_id = ?
           AND call_put = ?
@@ -92,7 +92,7 @@ def update_signal(con, short_snapshot_id, long_snapshot_id, call_put, bucket, si
 
     # Update long-term table
     con.execute(f"""
-        UPDATE option_snapshots_enriched_5w
+        UPDATE option_snapshots_execution_signals_5w
         SET {signal_column} = TRUE
         WHERE snapshot_id = ?
           AND call_put = ?

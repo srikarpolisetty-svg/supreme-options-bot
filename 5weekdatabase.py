@@ -3,7 +3,7 @@ import datetime
 import duckdb
 import numpy as np
 import pytz
-
+from databasefunctions import compute_z_scores_for_bucket_5w
 from databasefunctions import (
     get_closest_strike,
     get_option_quote,
@@ -188,74 +188,130 @@ option_symbol_otm2_put  = f"{symbol}{exp_date}P{otm2_put_option_strike_OCC}"
 
 
 
-# ---------- STEP 5: Connect to DB & write raw 5w snapshots ----------
-
 con = duckdb.connect("options_data.db")
 
-
-
 con.execute("""
-CREATE TABLE IF NOT EXISTS option_snapshots_5w (
+CREATE TABLE IF NOT EXISTS option_snapshots_raw_5w (
+    snapshot_id TEXT,
     timestamp TIMESTAMP,
+    symbol TEXT,
+    option_symbol TEXT,
+    strike DOUBLE,
     call_put TEXT,
+    days_to_expiry INTEGER,
+    expiration_date DATE,
     moneyness_bucket TEXT,
-    time_decay_bucket TEXT,
+    bid DOUBLE,
+    ask DOUBLE,
     mid DOUBLE,
     volume INTEGER,
-    iv DOUBLE
+    open_interest INTEGER,
+    iv DOUBLE,
+    spread DOUBLE,
+    spread_pct DOUBLE,
+    time_decay_bucket TEXT
 );
 """)
 
 
-
-
 con.execute("""
-DELETE FROM option_snapshots_5w
+DELETE FROM option_snapshots_raw_5w
 WHERE timestamp < NOW() - INTERVAL '35 days';
 """)
 
 con.execute("""
-INSERT INTO option_snapshots_5w (
+INSERT INTO option_snapshots_raw_5w (
+    snapshot_id,
     timestamp,
+    symbol,
+    option_symbol,
+    strike,
     call_put,
+    days_to_expiry,
+    expiration_date,
     moneyness_bucket,
-    time_decay_bucket,
+    bid,
+    ask,
     mid,
     volume,
-    iv
+    open_interest,
+    iv,
+    spread,
+    spread_pct,
+    time_decay_bucket
 )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?);
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """, [py(x) for x in [
-    # ATM CALL
-    timestamp, "C", "ATM",   time_decay_bucket, atm_call_mid, atm_call_volume, atm_call_iv,
 
-    # ATM PUT
-    timestamp, "P", "ATM",   time_decay_bucket, atm_put_mid, atm_put_volume, atm_put_iv,
+    # ===== ATM CALL =====
+    snapshot_id, timestamp, symbol, option_symbol_atm_call, closest_atm_call, "C",
+    days_till_expiry, exp_date, "ATM",
+    atm_call_bid, atm_call_ask, atm_call_mid,
+    atm_call_volume, atm_call_oi,
+    atm_call_iv, atm_call_spread, atm_call_spread_pct,
+    time_decay_bucket,
 
-    # OTM CALL 1
-    timestamp, "C", "OTM_1", time_decay_bucket, otm_call_1_mid, otm_call_1_volume, otm_call_1_iv,
+    # ===== ATM PUT =====
+    snapshot_id, timestamp, symbol, option_symbol_atm_put, closest_atm_put, "P",
+    days_till_expiry, exp_date, "ATM",
+    atm_put_bid, atm_put_ask, atm_put_mid,
+    atm_put_volume, atm_put_oi,
+    atm_put_iv, atm_put_spread, atm_put_spread_pct,
+    time_decay_bucket,
 
-    # OTM PUT 1
-    timestamp, "P", "OTM_1", time_decay_bucket, otm_put_1_mid, otm_put_1_volume, otm_put_1_iv,
+    # ===== OTM CALL 1 =====
+    snapshot_id, timestamp, symbol, option_symbol_otm1_call, otm_call_1_closest, "C",
+    days_till_expiry, exp_date, "OTM_1",
+    otm_call_1_bid, otm_call_1_ask, otm_call_1_mid,
+    otm_call_1_volume, otm_call_1_oi,
+    otm_call_1_iv, otm_call_1_spread, otm_call_1_spread_pct,
+    time_decay_bucket,
 
-    # OTM CALL 2
-    timestamp, "C", "OTM_2", time_decay_bucket, otm_call_2_mid, otm_call_2_volume, otm_call_2_iv,
+    # ===== OTM PUT 1 =====
+    snapshot_id, timestamp, symbol, option_symbol_otm1_put, otm_put_1_closest, "P",
+    days_till_expiry, exp_date, "OTM_1",
+    otm_put_1_bid, otm_put_1_ask, otm_put_1_mid,
+    otm_put_1_volume, otm_put_1_oi,
+    otm_put_1_iv, otm_put_1_spread, otm_put_1_spread_pct,
+    time_decay_bucket,
 
-    # OTM PUT 2
-    timestamp, "P", "OTM_2", time_decay_bucket, otm_put_2_mid, otm_put_2_volume, otm_put_2_iv,
+    # ===== OTM CALL 2 =====
+    snapshot_id, timestamp, symbol, option_symbol_otm2_call, otm_call_2_closest, "C",
+    days_till_expiry, exp_date, "OTM_2",
+    otm_call_2_bid, otm_call_2_ask, otm_call_2_mid,
+    otm_call_2_volume, otm_call_2_oi,
+    otm_call_2_iv, otm_call_2_spread, otm_call_2_spread_pct,
+    time_decay_bucket,
+
+    # ===== OTM PUT 2 =====
+    snapshot_id, timestamp, symbol, option_symbol_otm2_put, otm_put_2_closest, "P",
+    days_till_expiry, exp_date, "OTM_2",
+    otm_put_2_bid, otm_put_2_ask, otm_put_2_mid,
+    otm_put_2_volume, otm_put_2_oi,
+    otm_put_2_iv, otm_put_2_spread, otm_put_2_spread_pct,
+    time_decay_bucket
 ]])
 
 
 
-# ---------- STEP 6: Compute Z-scores using helper (5w history) ----------
 
-atm_call_z, atm_call_vol_z, atm_call_iv_z = compute_z_scores_for_bucket(
+
+
+
+
+
+
+
+
+
+
+atm_call_z, atm_call_vol_z, atm_call_iv_z = compute_z_scores_for_bucket_5w(
     con,
     bucket="ATM",
     call_put="C",
@@ -265,7 +321,7 @@ atm_call_z, atm_call_vol_z, atm_call_iv_z = compute_z_scores_for_bucket(
     current_iv=atm_call_iv,
 )
 
-atm_put_z, atm_put_vol_z, atm_put_iv_z = compute_z_scores_for_bucket(
+atm_put_z, atm_put_vol_z, atm_put_iv_z = compute_z_scores_for_bucket_5w(
     con,
     bucket="ATM",
     call_put="P",
@@ -275,7 +331,7 @@ atm_put_z, atm_put_vol_z, atm_put_iv_z = compute_z_scores_for_bucket(
     current_iv=atm_put_iv,
 )
 
-otm_call_1_z, otm_call_1_vol_z, otm_call_1_iv_z = compute_z_scores_for_bucket(
+otm_call_1_z, otm_call_1_vol_z, otm_call_1_iv_z = compute_z_scores_for_bucket_5w(
     con,
     bucket="OTM_1",
     call_put="C",
@@ -285,7 +341,7 @@ otm_call_1_z, otm_call_1_vol_z, otm_call_1_iv_z = compute_z_scores_for_bucket(
     current_iv=otm_call_1_iv,
 )
 
-otm_put_1_z, otm_put_1_vol_z, otm_put_1_iv_z = compute_z_scores_for_bucket(
+otm_put_1_z, otm_put_1_vol_z, otm_put_1_iv_z = compute_z_scores_for_bucket_5w(
     con,
     bucket="OTM_1",
     call_put="P",
@@ -295,7 +351,7 @@ otm_put_1_z, otm_put_1_vol_z, otm_put_1_iv_z = compute_z_scores_for_bucket(
     current_iv=otm_put_1_iv,
 )
 
-otm_call_2_z, otm_call_2_vol_z, otm_call_2_iv_z = compute_z_scores_for_bucket(
+otm_call_2_z, otm_call_2_vol_z, otm_call_2_iv_z = compute_z_scores_for_bucket_5w(
     con,
     bucket="OTM_2",
     call_put="C",
@@ -305,7 +361,7 @@ otm_call_2_z, otm_call_2_vol_z, otm_call_2_iv_z = compute_z_scores_for_bucket(
     current_iv=otm_call_2_iv,
 )
 
-otm_put_2_z, otm_put_2_vol_z, otm_put_2_iv_z = compute_z_scores_for_bucket(
+otm_put_2_z, otm_put_2_vol_z, otm_put_2_iv_z = compute_z_scores_for_bucket_5w(
     con,
     bucket="OTM_2",
     call_put="P",
@@ -315,7 +371,6 @@ otm_put_2_z, otm_put_2_vol_z, otm_put_2_iv_z = compute_z_scores_for_bucket(
     current_iv=otm_put_2_iv,
 )
 
-# ---------- STEP 7: Insert into enriched 5w table ----------
 
 
 con.execute("""
@@ -323,7 +378,7 @@ CREATE TABLE IF NOT EXISTS option_snapshots_enriched_5w (
     snapshot_id TEXT,
     timestamp TIMESTAMP,
     symbol TEXT,
-    option_symbol TEXT,          -- <-- ADDED
+    option_symbol TEXT,
     strike DOUBLE,
     call_put TEXT,
     days_to_expiry INTEGER,
@@ -338,19 +393,11 @@ CREATE TABLE IF NOT EXISTS option_snapshots_enriched_5w (
     spread DOUBLE,
     spread_pct DOUBLE,
     time_decay_bucket TEXT,
+
     mid_z DOUBLE,
     volume_z DOUBLE,
     iv_z DOUBLE,
 
-    -- ==== SIGNAL LOGGING (BOOLEAN) ====
-    atm_call_signal BOOLEAN,
-    atm_put_signal  BOOLEAN,
-    otm1_call_signal BOOLEAN,
-    otm1_put_signal  BOOLEAN,
-    otm2_call_signal BOOLEAN,
-    otm2_put_signal  BOOLEAN,
-
-    -- ==== RETURN LABELS ====
     opt_ret_10m DOUBLE,
     opt_ret_1h DOUBLE,
     opt_ret_eod DOUBLE,
@@ -360,10 +407,15 @@ CREATE TABLE IF NOT EXISTS option_snapshots_enriched_5w (
 );
 """)
 
+
+
+
 con.execute("""
 DELETE FROM option_snapshots_enriched_5w
 WHERE timestamp < NOW() - INTERVAL '35 days';
 """)
+
+
 
 con.execute("""
 INSERT INTO option_snapshots_enriched_5w (
@@ -385,16 +437,10 @@ INSERT INTO option_snapshots_enriched_5w (
     spread,
     spread_pct,
     time_decay_bucket,
+
     mid_z,
     volume_z,
     iv_z,
-
-    atm_call_signal,
-    atm_put_signal,
-    otm1_call_signal,
-    otm1_put_signal,
-    otm2_call_signal,
-    otm2_put_signal,
 
     opt_ret_10m,
     opt_ret_1h,
@@ -404,95 +450,251 @@ INSERT INTO option_snapshots_enriched_5w (
     opt_ret_exp
 )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-     NULL, NULL, NULL, NULL, NULL, NULL,
-     NULL, NULL, NULL, NULL, NULL, NULL),
-
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-     NULL, NULL, NULL, NULL, NULL, NULL,
-     NULL, NULL, NULL, NULL, NULL, NULL),
-
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-     NULL, NULL, NULL, NULL, NULL, NULL,
-     NULL, NULL, NULL, NULL, NULL, NULL),
-
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-     NULL, NULL, NULL, NULL, NULL, NULL,
-     NULL, NULL, NULL, NULL, NULL, NULL),
-
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-     NULL, NULL, NULL, NULL, NULL, NULL,
-     NULL, NULL, NULL, NULL, NULL, NULL),
-
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-     NULL, NULL, NULL, NULL, NULL, NULL,
-     NULL, NULL, NULL, NULL, NULL, NULL)
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """, [py(x) for x in [
 
     # ===== ATM CALL =====
     snapshot_id, timestamp, symbol, option_symbol_atm_call, closest_atm_call, "C",
-    days_till_expiry, exp_date,
-    "ATM",
+    days_till_expiry, exp_date, "ATM",
     atm_call_bid, atm_call_ask, atm_call_mid,
     atm_call_volume, atm_call_oi,
     atm_call_iv, atm_call_spread, atm_call_spread_pct,
     time_decay_bucket,
     atm_call_z, atm_call_vol_z, atm_call_iv_z,
+    None, None, None, None, None, None,
 
     # ===== ATM PUT =====
     snapshot_id, timestamp, symbol, option_symbol_atm_put, closest_atm_put, "P",
-    days_till_expiry, exp_date,
-    "ATM",
+    days_till_expiry, exp_date, "ATM",
     atm_put_bid, atm_put_ask, atm_put_mid,
     atm_put_volume, atm_put_oi,
     atm_put_iv, atm_put_spread, atm_put_spread_pct,
     time_decay_bucket,
     atm_put_z, atm_put_vol_z, atm_put_iv_z,
+    None, None, None, None, None, None,
 
     # ===== OTM CALL 1 =====
     snapshot_id, timestamp, symbol, option_symbol_otm1_call, otm_call_1_closest, "C",
-    days_till_expiry, exp_date,
-    "OTM_1",
+    days_till_expiry, exp_date, "OTM_1",
     otm_call_1_bid, otm_call_1_ask, otm_call_1_mid,
     otm_call_1_volume, otm_call_1_oi,
     otm_call_1_iv, otm_call_1_spread, otm_call_1_spread_pct,
     time_decay_bucket,
     otm_call_1_z, otm_call_1_vol_z, otm_call_1_iv_z,
+    None, None, None, None, None, None,
 
     # ===== OTM PUT 1 =====
     snapshot_id, timestamp, symbol, option_symbol_otm1_put, otm_put_1_closest, "P",
-    days_till_expiry, exp_date,
-    "OTM_1",
+    days_till_expiry, exp_date, "OTM_1",
     otm_put_1_bid, otm_put_1_ask, otm_put_1_mid,
     otm_put_1_volume, otm_put_1_oi,
     otm_put_1_iv, otm_put_1_spread, otm_put_1_spread_pct,
     time_decay_bucket,
     otm_put_1_z, otm_put_1_vol_z, otm_put_1_iv_z,
+    None, None, None, None, None, None,
 
     # ===== OTM CALL 2 =====
     snapshot_id, timestamp, symbol, option_symbol_otm2_call, otm_call_2_closest, "C",
-    days_till_expiry, exp_date,
-    "OTM_2",
+    days_till_expiry, exp_date, "OTM_2",
     otm_call_2_bid, otm_call_2_ask, otm_call_2_mid,
     otm_call_2_volume, otm_call_2_oi,
     otm_call_2_iv, otm_call_2_spread, otm_call_2_spread_pct,
     time_decay_bucket,
     otm_call_2_z, otm_call_2_vol_z, otm_call_2_iv_z,
+    None, None, None, None, None, None,
 
     # ===== OTM PUT 2 =====
     snapshot_id, timestamp, symbol, option_symbol_otm2_put, otm_put_2_closest, "P",
-    days_till_expiry, exp_date,
-    "OTM_2",
+    days_till_expiry, exp_date, "OTM_2",
     otm_put_2_bid, otm_put_2_ask, otm_put_2_mid,
     otm_put_2_volume, otm_put_2_oi,
     otm_put_2_iv, otm_put_2_spread, otm_put_2_spread_pct,
     time_decay_bucket,
-    otm_put_2_z, otm_put_2_vol_z, otm_put_2_iv_z
+    otm_put_2_z, otm_put_2_vol_z, otm_put_2_iv_z,
+    None, None, None, None, None, None
+]])
+
+
+
+con.execute("""
+CREATE TABLE IF NOT EXISTS option_snapshots_execution_signals_5w (
+    snapshot_id TEXT,
+    timestamp TIMESTAMP,
+    symbol TEXT,
+    option_symbol TEXT,
+    strike DOUBLE,
+    call_put TEXT,
+    days_to_expiry INTEGER,
+    expiration_date DATE,
+    moneyness_bucket TEXT,
+    bid DOUBLE,
+    ask DOUBLE,
+    mid DOUBLE,
+    volume INTEGER,
+    open_interest INTEGER,
+    iv DOUBLE,
+    spread DOUBLE,
+    spread_pct DOUBLE,
+    time_decay_bucket TEXT,
+
+    -- z-scores
+    mid_z DOUBLE,
+    volume_z DOUBLE,
+    iv_z DOUBLE,
+
+    -- returns
+    opt_ret_10m DOUBLE,
+    opt_ret_1h DOUBLE,
+    opt_ret_eod DOUBLE,
+    opt_ret_next_open DOUBLE,
+    opt_ret_1d DOUBLE,
+    opt_ret_exp DOUBLE,
+
+    -- signals (boolean)
+    atm_call_signal BOOLEAN,
+    atm_put_signal BOOLEAN,
+    otm1_call_signal BOOLEAN,
+    otm1_put_signal BOOLEAN,
+    otm2_call_signal BOOLEAN,
+    otm2_put_signal BOOLEAN
+);
+""")
+
+
+
+con.execute("""
+DELETE FROM option_snapshots_execution_signals_5w
+WHERE timestamp < NOW() - INTERVAL '35 days';
+""")
+
+ 
+
+con.execute("""
+INSERT INTO option_snapshots_execution_signals_5w (
+    snapshot_id,
+    timestamp,
+    symbol,
+    option_symbol,
+    strike,
+    call_put,
+    days_to_expiry,
+    expiration_date,
+    moneyness_bucket,
+    bid,
+    ask,
+    mid,
+    volume,
+    open_interest,
+    iv,
+    spread,
+    spread_pct,
+    time_decay_bucket,
+
+    mid_z,
+    volume_z,
+    iv_z,
+
+    opt_ret_10m,
+    opt_ret_1h,
+    opt_ret_eod,
+    opt_ret_next_open,
+    opt_ret_1d,
+    opt_ret_exp,
+
+    atm_call_signal,
+    atm_put_signal,
+    otm1_call_signal,
+    otm1_put_signal,
+    otm2_call_signal,
+    otm2_put_signal
+)
+VALUES
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+""", [py(x) for x in [
+
+    # ===== ATM CALL =====
+    snapshot_id, timestamp, symbol, option_symbol_atm_call, closest_atm_call, "C",
+    days_till_expiry, exp_date, "ATM",
+    atm_call_bid, atm_call_ask, atm_call_mid,
+    atm_call_volume, atm_call_oi,
+    atm_call_iv, atm_call_spread, atm_call_spread_pct,
+    time_decay_bucket,
+    atm_call_z, atm_call_vol_z, atm_call_iv_z,
+    None, None, None, None, None, None,
+    None, None, None, None, None, None,
+
+    # ===== ATM PUT =====
+    snapshot_id, timestamp, symbol, option_symbol_atm_put, closest_atm_put, "P",
+    days_till_expiry, exp_date, "ATM",
+    atm_put_bid, atm_put_ask, atm_put_mid,
+    atm_put_volume, atm_put_oi,
+    atm_put_iv, atm_put_spread, atm_put_spread_pct,
+    time_decay_bucket,
+    atm_put_z, atm_put_vol_z, atm_put_iv_z,
+    None, None, None, None, None, None,
+    None, None, None, None, None, None,
+
+    # ===== OTM CALL 1 =====
+    snapshot_id, timestamp, symbol, option_symbol_otm1_call, otm_call_1_closest, "C",
+    days_till_expiry, exp_date, "OTM_1",
+    otm_call_1_bid, otm_call_1_ask, otm_call_1_mid,
+    otm_call_1_volume, otm_call_1_oi,
+    otm_call_1_iv, otm_call_1_spread, otm_call_1_spread_pct,
+    time_decay_bucket,
+    otm_call_1_z, otm_call_1_vol_z, otm_call_1_iv_z,
+    None, None, None, None, None, None,
+    None, None, None, None, None, None,
+
+    # ===== OTM PUT 1 =====
+    snapshot_id, timestamp, symbol, option_symbol_otm1_put, otm_put_1_closest, "P",
+    days_till_expiry, exp_date, "OTM_1",
+    otm_put_1_bid, otm_put_1_ask, otm_put_1_mid,
+    otm_put_1_volume, otm_put_1_oi,
+    otm_put_1_iv, otm_put_1_spread, otm_put_1_spread_pct,
+    time_decay_bucket,
+    otm_put_1_z, otm_put_1_vol_z, otm_put_1_iv_z,
+    None, None, None, None, None, None,
+    None, None, None, None, None, None,
+
+    # ===== OTM CALL 2 =====
+    snapshot_id, timestamp, symbol, option_symbol_otm2_call, otm_call_2_closest, "C",
+    days_till_expiry, exp_date, "OTM_2",
+    otm_call_2_bid, otm_call_2_ask, otm_call_2_mid,
+    otm_call_2_volume, otm_call_2_oi,
+    otm_call_2_iv, otm_call_2_spread, otm_call_2_spread_pct,
+    time_decay_bucket,
+    otm_call_2_z, otm_call_2_vol_z, otm_call_2_iv_z,
+    None, None, None, None, None, None,
+    None, None, None, None, None, None,
+
+    # ===== OTM PUT 2 =====
+    snapshot_id, timestamp, symbol, option_symbol_otm2_put, otm_put_2_closest, "P",
+    days_till_expiry, exp_date, "OTM_2",
+    otm_put_2_bid, otm_put_2_ask, otm_put_2_mid,
+    otm_put_2_volume, otm_put_2_oi,
+    otm_put_2_iv, otm_put_2_spread, otm_put_2_spread_pct,
+    time_decay_bucket,
+    otm_put_2_z, otm_put_2_vol_z, otm_put_2_iv_z,
+    None, None, None, None, None, None,
+    None, None, None, None, None, None
 ]])
 
 
 
 
 
-con.close()
 
+
+
+
+con.close()
