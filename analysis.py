@@ -6,6 +6,12 @@ from analysis_functions import load_all_groups
 from analysis_functions import get_option_metrics
 from analysis_functions import update_signal
 
+from datetime import datetime
+
+now = datetime.now()
+print(f"Run time: {now.strftime('%Y-%m-%d %H:%M')}")
+
+
 
 con = duckdb.connect("options_data.db")
 
