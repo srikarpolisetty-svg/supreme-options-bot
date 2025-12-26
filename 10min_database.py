@@ -9,14 +9,14 @@ import pytz
 from databasefunctions import compute_z_scores_for_bucket
 
 import sys
-from datetime import datetime
+
 from zoneinfo import ZoneInfo
 import exchange_calendars as ecals
 
 NY_TZ = ZoneInfo("America/New_York")
 XNYS = ecals.get_calendar("XNYS")  # NYSE
 
-now1 = datetime.now(NY_TZ)
+now1 = datetime.datetime.now(NY_TZ)
 
 # True only if the exchange is actually open right now (includes holidays/early closes)
 if not XNYS.is_open_on_minute(now1, ignore_breaks=True):

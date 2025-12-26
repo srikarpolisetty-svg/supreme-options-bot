@@ -6,8 +6,6 @@ from analysis_functions import load_all_groups
 from analysis_functions import get_option_metrics
 from analysis_functions import update_signal
 
-from datetime import datetime
-
 import sys
 from datetime import datetime
 from zoneinfo import ZoneInfo

@@ -8,26 +8,21 @@ from execution_functions import to_float
 from execution_functions import get_portfolio
 from execution_functions import get_daily_unrealized_pnl
 from datetime import datetime, timezone, timedelta
-
 from execution_functions import place_close_order
 from execution_functions import place_stop_close_order
-
 from execution_functions import trail_exit_signals
-from datetime import datetime, timezone
-
 import sys
-from datetime import datetime
 from zoneinfo import ZoneInfo
 import exchange_calendars as ecals
 
 NY_TZ = ZoneInfo("America/New_York")
 XNYS = ecals.get_calendar("XNYS")  # NYSE
 
-now = datetime.now(NY_TZ)
+now1 = datetime.now(NY_TZ)
 
 # True only if the exchange is actually open right now (includes holidays/early closes)
-if not XNYS.is_open_on_minute(now, ignore_breaks=True):
-    print(f"Market closed (holiday/after-hours) — skipping insert. now={now}")
+if not XNYS.is_open_on_minute(now1, ignore_breaks=True):
+    print(f"Market closed (holiday/after-hours) — skipping insert. now={now1}")
     sys.exit(0)
 
 

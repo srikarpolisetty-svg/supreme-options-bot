@@ -4,18 +4,17 @@ from returns_script_functions import fill_return_label_5w
 from returns_script_functions import fill_return_label_executionsignals
 from returns_script_functions import fill_return_label_executionsignals_5w
 import sys
-from datetime import datetime
 from zoneinfo import ZoneInfo
 import exchange_calendars as ecals
 
 NY_TZ = ZoneInfo("America/New_York")
 XNYS = ecals.get_calendar("XNYS")  # NYSE
 
-now = datetime.now(NY_TZ)
+now1 = datetime.datetime.now(NY_TZ)
 
 # True only if the exchange is actually open right now (includes holidays/early closes)
-if not XNYS.is_open_on_minute(now, ignore_breaks=True):
-    print(f"Market closed (holiday/after-hours) — skipping insert. now={now}")
+if not XNYS.is_open_on_minute(now1, ignore_breaks=True):
+    print(f"Market closed (holiday/after-hours) — skipping insert. now={now1}")
     sys.exit(0)
 
 
@@ -177,8 +176,8 @@ fill_return_label_executionsignals_5w(
 
 
 
-now1 = datetime.datetime.now()
-print(now1.strftime("%Y-%m-%d %H:%M"))
+now = datetime.datetime.now()
+print(now.strftime("%Y-%m-%d %H:%M"))
 
 
 
