@@ -6,8 +6,8 @@ df = con.execute("""
     SELECT *
     FROM option_snapshots_enriched
     ORDER BY timestamp ASC
-    LIMIT 6
 """).df()
+
 
 
 pd.set_option("display.max_columns", None)
