@@ -8,6 +8,27 @@ from analysis_functions import update_signal
 
 from datetime import datetime
 
+import sys
+from datetime import datetime
+from zoneinfo import ZoneInfo
+import exchange_calendars as ecals
+
+NY_TZ = ZoneInfo("America/New_York")
+XNYS = ecals.get_calendar("XNYS")  # NYSE
+
+now = datetime.now(NY_TZ)
+
+# True only if the exchange is actually open right now (includes holidays/early closes)
+if not XNYS.is_open_on_minute(now, ignore_breaks=True):
+    print(f"Market closed (holiday/after-hours) — skipping insert. now={now}")
+    sys.exit(0)
+
+
+
+
+
+
+
 now = datetime.now()
 print(f"Run time: {now.strftime('%Y-%m-%d %H:%M')}")
 

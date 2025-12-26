@@ -15,6 +15,29 @@ from execution_functions import place_stop_close_order
 from execution_functions import trail_exit_signals
 from datetime import datetime, timezone
 
+import sys
+from datetime import datetime
+from zoneinfo import ZoneInfo
+import exchange_calendars as ecals
+
+NY_TZ = ZoneInfo("America/New_York")
+XNYS = ecals.get_calendar("XNYS")  # NYSE
+
+now = datetime.now(NY_TZ)
+
+# True only if the exchange is actually open right now (includes holidays/early closes)
+if not XNYS.is_open_on_minute(now, ignore_breaks=True):
+    print(f"Market closed (holiday/after-hours) — skipping insert. now={now}")
+    sys.exit(0)
+
+
+
+
+
+
+
+
+
 
 token_response = get_access_token(SECRET_KEY)
 

@@ -8,8 +8,7 @@ con = duckdb.connect("options_data.db")
 def fill_return_label(label_name, time_condition, extra_where=""):
     """
     label_name: column to update, e.g. 'opt_ret_10m'
-    time_condition: SQL condition for selecting the future snapshot, e.g.
-                    "f.timestamp >= base.timestamp + INTERVAL 10 MINUTE"
+    time_condition: SQL condition for selecting the future snapshot
     extra_where: optional SQL filter for the UPDATE WHERE clause
     """
     con.execute(f"""
@@ -17,10 +16,10 @@ def fill_return_label(label_name, time_condition, extra_where=""):
         SET {label_name} = (
             SELECT (f.mid - base.mid) / base.mid
             FROM option_snapshots_enriched f
-            WHERE f.symbol           = base.symbol
-              AND f.strike           = base.strike
-              AND f.call_put         = base.call_put
-              AND f.expiration_date  = base.expiration_date
+            WHERE f.symbol            = base.symbol
+              AND f.call_put          = base.call_put
+              AND f.expiration_date   = base.expiration_date
+              AND f.moneyness_bucket  = base.moneyness_bucket
               AND {time_condition}
             ORDER BY f.timestamp
             LIMIT 1
@@ -28,6 +27,7 @@ def fill_return_label(label_name, time_condition, extra_where=""):
         WHERE {label_name} IS NULL
         {extra_where};
     """)
+
 
 
 
@@ -42,10 +42,10 @@ def fill_return_label_5w(label_name, time_condition, extra_where=""):
         SET {label_name} = (
             SELECT (f.mid - base.mid) / base.mid
             FROM option_snapshots_enriched_5w f
-            WHERE f.symbol           = base.symbol
-              AND f.strike           = base.strike
-              AND f.call_put         = base.call_put
-              AND f.expiration_date  = base.expiration_date
+            WHERE f.symbol            = base.symbol
+              AND f.call_put          = base.call_put
+              AND f.expiration_date   = base.expiration_date
+              AND f.moneyness_bucket  = base.moneyness_bucket
               AND {time_condition}
             ORDER BY f.timestamp
             LIMIT 1
@@ -53,6 +53,7 @@ def fill_return_label_5w(label_name, time_condition, extra_where=""):
         WHERE {label_name} IS NULL
         {extra_where};
     """)
+
 
 
 
@@ -61,17 +62,17 @@ def fill_return_label_5w(label_name, time_condition, extra_where=""):
 
 def fill_return_label_executionsignals(label_name, time_condition, extra_where=""):
     """
-    Same logic as fill_return_label, but updates option_snapshots_enriched_5w.
+    Same logic as fill_return_label, but updates option_snapshots_execution_signals.
     """
     con.execute(f"""
         UPDATE option_snapshots_execution_signals base
         SET {label_name} = (
             SELECT (f.mid - base.mid) / base.mid
             FROM option_snapshots_execution_signals f
-            WHERE f.symbol           = base.symbol
-              AND f.strike           = base.strike
-              AND f.call_put         = base.call_put
-              AND f.expiration_date  = base.expiration_date
+            WHERE f.symbol            = base.symbol
+              AND f.call_put          = base.call_put
+              AND f.expiration_date   = base.expiration_date
+              AND f.moneyness_bucket  = base.moneyness_bucket
               AND {time_condition}
             ORDER BY f.timestamp
             LIMIT 1
@@ -79,6 +80,7 @@ def fill_return_label_executionsignals(label_name, time_condition, extra_where="
         WHERE {label_name} IS NULL
         {extra_where};
     """)
+
 
 
 
@@ -90,17 +92,17 @@ def fill_return_label_executionsignals(label_name, time_condition, extra_where="
 
 def fill_return_label_executionsignals_5w(label_name, time_condition, extra_where=""):
     """
-    Same logic as fill_return_label, but updates option_snapshots_enriched_5w.
+    Same logic as fill_return_label, but updates option_snapshots_execution_signals_5w.
     """
     con.execute(f"""
         UPDATE option_snapshots_execution_signals_5w base
         SET {label_name} = (
             SELECT (f.mid - base.mid) / base.mid
             FROM option_snapshots_execution_signals_5w f
-            WHERE f.symbol           = base.symbol
-              AND f.strike           = base.strike
-              AND f.call_put         = base.call_put
-              AND f.expiration_date  = base.expiration_date
+            WHERE f.symbol            = base.symbol
+              AND f.call_put          = base.call_put
+              AND f.expiration_date   = base.expiration_date
+              AND f.moneyness_bucket  = base.moneyness_bucket
               AND {time_condition}
             ORDER BY f.timestamp
             LIMIT 1
@@ -108,4 +110,5 @@ def fill_return_label_executionsignals_5w(label_name, time_condition, extra_wher
         WHERE {label_name} IS NULL
         {extra_where};
     """)
+
 
