@@ -58,9 +58,11 @@ fill_return_label(
 
 fill_return_label(
     "opt_ret_exp",
-    "DATE(f.timestamp) <= base.expiration_date",
-    "AND base.expiration_date <= CURRENT_DATE"
+    "DATE(f.timestamp) = base.expiration_date",
+    "AND base.expiration_date <= CURRENT_DATE",
+    order_dir="DESC"
 )
+
 
 
 
@@ -93,9 +95,11 @@ fill_return_label_5w(
 
 fill_return_label_5w(
     "opt_ret_exp",
-    "DATE(f.timestamp) <= base.expiration_date",
-    "AND base.expiration_date <= CURRENT_DATE"
+    "DATE(f.timestamp) = base.expiration_date",
+    "AND base.expiration_date <= CURRENT_DATE",
+    order_dir="DESC"
 )
+
 
 
 
@@ -128,9 +132,11 @@ fill_return_label_executionsignals(
 
 fill_return_label_executionsignals(
     "opt_ret_exp",
-    "DATE(f.timestamp) <= base.expiration_date",
-    "AND base.expiration_date <= CURRENT_DATE"
+    "DATE(f.timestamp) = base.expiration_date",
+    "AND base.expiration_date <= CURRENT_DATE",
+    order_dir="DESC"
 )
+
 
 
 # db 3 long term database 
@@ -160,11 +166,15 @@ fill_return_label_executionsignals_5w(
     "f.timestamp >= base.timestamp + INTERVAL 1 DAY"
 )
 
+
 fill_return_label_executionsignals_5w(
     "opt_ret_exp",
-    "DATE(f.timestamp) <= base.expiration_date",
-    "AND base.expiration_date <= CURRENT_DATE"
+    "DATE(f.timestamp) = base.expiration_date",
+    "AND base.expiration_date <= CURRENT_DATE",
+    order_dir="DESC"
 )
+
+
 
 
 
