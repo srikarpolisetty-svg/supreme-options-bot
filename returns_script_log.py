@@ -36,8 +36,10 @@ fill_return_label(
 fill_return_label(
     "opt_ret_eod",
     "DATE(f.timestamp) = DATE(base.timestamp)",
-    "AND DATE(base.timestamp) < CURRENT_DATE"
+    "AND DATE(base.timestamp) < CURRENT_DATE",
+    order_dir="DESC"
 )
+
 
 
 
@@ -80,8 +82,10 @@ fill_return_label_5w(
 fill_return_label_5w(
     "opt_ret_eod",
     "DATE(f.timestamp) = DATE(base.timestamp)",
-    "AND DATE(base.timestamp) < CURRENT_DATE"
+    "AND DATE(base.timestamp) < CURRENT_DATE",
+    order_dir="DESC"
 )
+
 
 fill_return_label_5w(
     "opt_ret_next_open",
@@ -117,7 +121,8 @@ fill_return_label_executionsignals(
 fill_return_label_executionsignals(
     "opt_ret_eod",
     "DATE(f.timestamp) = DATE(base.timestamp)",
-    "AND DATE(base.timestamp) < CURRENT_DATE"
+    "AND DATE(base.timestamp) < CURRENT_DATE",
+    order_dir="DESC"
 )
 
 fill_return_label_executionsignals(
@@ -153,7 +158,8 @@ fill_return_label_executionsignals_5w(
 fill_return_label_executionsignals_5w(
     "opt_ret_eod",
     "DATE(f.timestamp) = DATE(base.timestamp)",
-    "AND DATE(base.timestamp) < CURRENT_DATE"
+    "AND DATE(base.timestamp) < CURRENT_DATE",
+    order_dir="DESC"
 )
 
 fill_return_label_executionsignals_5w(
