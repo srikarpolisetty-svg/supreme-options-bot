@@ -29,8 +29,8 @@ if not XNYS.is_open_on_minute(now, ignore_breaks=True):
 
 
 
-now = datetime.now()
-print(f"Run time: {now.strftime('%Y-%m-%d %H:%M')}")
+now1 = datetime.now()
+print(f"Run time: {now1.strftime('%Y-%m-%d %H:%M')}")
 
 
 
