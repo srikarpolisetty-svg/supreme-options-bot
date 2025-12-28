@@ -43,12 +43,22 @@ data = get_portfolio(ACCOUNT_ID, token_response)
 
 options_bp = to_float(data["buyingPower"]["optionsBuyingPower"])
 
-positions = data.get("positions")
+
+
+positions = [
+    p for p in data.get("positions", [])
+    if p.get("instrument", {}).get("type") == "OPTION"
+]
+
 
 if not positions:
     print("No positions to close")
 
-orders = data.get("orders")
+orders = [
+    o for o in data.get("orders", [])
+    if o.get("instrument", {}).get("type") == "OPTION"
+]
+
 
 PER_TRADE_RISK_PCT = 0.02
 
@@ -201,7 +211,11 @@ for row in df.itertuples(index=False):
 positions = data.get("positions", [])
 
 if positions:
-    for pos in data.get("positions", []):
+    for pos in positions:
+        # ✅ only options
+        if (pos.get("instrument", {}) or {}).get("type") != "OPTION":
+            continue
+
         option_return = to_float(
             (pos.get("costBasis") or {}).get("gainPercentage")
         )
@@ -222,6 +236,7 @@ if positions:
                 stop_price=stop_price
             )
 
+
   
 
 
@@ -234,6 +249,10 @@ positions = data.get("positions", [])
 
 if positions:
     for pos in positions:
+        # ✅ only option positions
+        if (pos.get("instrument") or {}).get("type") != "OPTION":
+            continue
+
         option_return = to_float(
             (pos.get("costBasis") or {}).get("gainPercentage")
         )
@@ -253,6 +272,7 @@ if positions:
                 symbol,
                 quantity=1
             )
+
 
 
 

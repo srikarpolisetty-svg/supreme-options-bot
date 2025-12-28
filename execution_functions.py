@@ -271,14 +271,27 @@ def get_portfolio(account_id, api_key):
 
 
 
-def get_daily_unrealized_pnl(portfolio_data):
+def get_daily_unrealized_pnl_options(portfolio_data):
     daily_unrealized_pnl = 0.0
 
     for pos in portfolio_data.get("positions", []):
+        # only option positions
+        is_option = (
+            pos.get("instrument", {}).get("type") == "OPTION"
+            or any(
+                leg.get("instrument", {}).get("type") == "OPTION"
+                for leg in pos.get("legs", [])
+            )
+        )
+
+        if not is_option:
+            continue
+
         daily_gain = (pos.get("positionDailyGain") or {}).get("gainValue")
         daily_unrealized_pnl += to_float(daily_gain)
 
     return daily_unrealized_pnl
+
 
 
 
@@ -290,6 +303,10 @@ max_price_tracker = {}
 
 def update_max_prices(data):
     for pos in data.get("positions", []):
+        # ✅ only option positions
+        if (pos.get("instrument") or {}).get("type") != "OPTION":
+            continue
+
         symbol = (pos.get("instrument") or {}).get("symbol")
         if not symbol:
             continue
@@ -305,6 +322,7 @@ def update_max_prices(data):
             max_price_tracker[symbol] = current_price
 
     return max_price_tracker
+
 
 
 
@@ -390,16 +408,18 @@ def get_instrument(
 
 
 def trail_exit_signals(data, token_response, trail_pct=0.20):
-
     """
-    Returns a list of symbols that should be CLOSED due to trailing stop.
+    Trailing stop exit for OPTION positions only.
     trail_pct=0.20 means: exit if price drops 20% from max.
     """
-
 
     update_max_prices(data)
 
     for pos in data.get("positions", []):
+        # ✅ only option positions
+        if (pos.get("instrument") or {}).get("type") != "OPTION":
+            continue
+
         symbol = (pos.get("instrument") or {}).get("symbol")
         if not symbol:
             continue
@@ -415,7 +435,13 @@ def trail_exit_signals(data, token_response, trail_pct=0.20):
         stop_level = peak * (1 - trail_pct)
 
         if current_price <= stop_level:
-            place_close_order(ACCOUNT_ID,token_response,symbol=pos["instrument"]["symbol"] ,quantity=pos["quantity"])
+            place_close_order(
+                ACCOUNT_ID,
+                token_response,
+                symbol=symbol,
+                quantity=pos["quantity"]
+            )
+
            
 
 
