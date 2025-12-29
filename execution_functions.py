@@ -396,7 +396,11 @@ def get_instrument(
 
 
 
-
+def get_all_symbols(con, table="option_snapshots_enriched"):
+    df = con.execute(
+        f"SELECT DISTINCT symbol FROM {table}"
+    ).df()
+    return df["symbol"].tolist()
 
 
 

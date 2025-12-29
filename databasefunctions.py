@@ -56,6 +56,7 @@ def get_closest_strike(chain, call_put, target):
 
 def compute_z_scores_for_bucket(
     con,
+    symbol: str,
     bucket: str,
     call_put: str,
     time_decay_bucket: str,
@@ -64,21 +65,21 @@ def compute_z_scores_for_bucket(
     current_iv: float,
 ):
     """
-    Compute z-scores for mid, volume, iv for a given (bucket, call_put, time_decay_bucket),
-    using the historical rows in option_snapshots.
+    Compute z-scores for mid, volume, iv for a given
+    (symbol, bucket, call_put, time_decay_bucket),
+    using the historical rows in option_snapshots_raw.
     """
     df = con.execute(
         """
         SELECT mid, volume, iv
         FROM option_snapshots_raw
-        WHERE moneyness_bucket = ?
+        WHERE symbol = ?
+          AND moneyness_bucket = ?
           AND call_put = ?
           AND time_decay_bucket = ?
         """,
-        [bucket, call_put, time_decay_bucket],
+        [symbol, bucket, call_put, time_decay_bucket],
     ).df()
-
-
 
     if df.empty:
         return 0.0, 0.0, 0.0
@@ -97,6 +98,7 @@ def compute_z_scores_for_bucket(
     iv_z  = (current_iv - iv_mean) / iv_std if iv_std else 0.0
 
     return mid_z, vol_z, iv_z
+
 
 
 
@@ -104,6 +106,7 @@ def compute_z_scores_for_bucket(
 
 def compute_z_scores_for_bucket_5w(
     con,
+    symbol: str,
     bucket: str,
     call_put: str,
     time_decay_bucket: str,
@@ -112,21 +115,21 @@ def compute_z_scores_for_bucket_5w(
     current_iv: float,
 ):
     """
-    Compute z-scores for mid, volume, iv for a given (bucket, call_put, time_decay_bucket),
-    using the historical rows in option_snapshots.
+    Compute z-scores for mid, volume, iv for a given
+    (symbol, bucket, call_put, time_decay_bucket),
+    using the historical rows in option_snapshots_raw_5w.
     """
     df = con.execute(
         """
         SELECT mid, volume, iv
         FROM option_snapshots_raw_5w
-        WHERE moneyness_bucket = ?
+        WHERE symbol = ?
+          AND moneyness_bucket = ?
           AND call_put = ?
           AND time_decay_bucket = ?
         """,
-        [bucket, call_put, time_decay_bucket],
+        [symbol, bucket, call_put, time_decay_bucket],
     ).df()
-
-
 
     if df.empty:
         return 0.0, 0.0, 0.0
@@ -145,4 +148,5 @@ def compute_z_scores_for_bucket_5w(
     iv_z  = (current_iv - iv_mean) / iv_std if iv_std else 0.0
 
     return mid_z, vol_z, iv_z
+
 

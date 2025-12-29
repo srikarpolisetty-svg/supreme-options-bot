@@ -16,7 +16,7 @@ def get_latest_snapshot(con, table: str, call_put: str, moneyness_bucket: str):
 
 
 
-def load_all_groups(con):
+def load_all_groups(con, symbol: str):
     tables = {
         "short": "option_snapshots_enriched",
         "long":  "option_snapshots_enriched_5w"
@@ -24,7 +24,7 @@ def load_all_groups(con):
 
     buckets = ["ATM", "OTM_1", "OTM_2"]
     sides = ["C", "P"]  # C = Call, P = Put
-    
+
     data = {}
 
     for bucket in buckets:
@@ -32,11 +32,12 @@ def load_all_groups(con):
             key = f"{bucket}_{'CALL' if side=='C' else 'PUT'}"
 
             data[key] = {
-                "short": get_latest_snapshot(con, tables["short"], side, bucket),
-                "long":  get_latest_snapshot(con, tables["long"],  side, bucket)
+                "short": get_latest_snapshot(con, tables["short"], symbol, side, bucket),
+                "long":  get_latest_snapshot(con, tables["long"],  symbol, side, bucket),
             }
 
     return data
+
 
 
 
@@ -80,21 +81,32 @@ def get_option_metrics(groups, key: str):
 
 
 
-def update_signal(con, short_snapshot_id, long_snapshot_id, call_put, bucket, signal_column):
+def update_signal(
+    con,
+    symbol: str,
+    short_snapshot_id,
+    long_snapshot_id,
+    call_put,
+    bucket,
+    signal_column,
+):
     # Update short-term table
     con.execute(f"""
         UPDATE option_snapshots_execution_signals
         SET {signal_column} = TRUE
         WHERE snapshot_id = ?
+          AND symbol = ?
           AND call_put = ?
           AND moneyness_bucket = ?;
-    """, [short_snapshot_id, call_put, bucket])
+    """, [short_snapshot_id, symbol, call_put, bucket])
 
     # Update long-term table
     con.execute(f"""
         UPDATE option_snapshots_execution_signals_5w
         SET {signal_column} = TRUE
         WHERE snapshot_id = ?
+          AND symbol = ?
           AND call_put = ?
           AND moneyness_bucket = ?;
-    """, [long_snapshot_id, call_put, bucket])
+    """, [long_snapshot_id, symbol, call_put, bucket])
+
