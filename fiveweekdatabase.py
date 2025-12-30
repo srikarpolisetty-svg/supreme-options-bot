@@ -152,7 +152,8 @@ def ingest_option_snapshot_5w(symbol: str):
     timestamp = now_est.strftime("%Y-%m-%d %H:%M:%S")
 
     snapshot_id = f"{symbol}_{timestamp}"
-
+    print(snapshot_id)
+    
     expiration = exp
     exp_date = datetime.datetime.strptime(expiration, "%Y-%m-%d").date()
     days_till_expiry = (exp_date - now_dateobject).days

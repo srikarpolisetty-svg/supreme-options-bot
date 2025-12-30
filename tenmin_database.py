@@ -178,6 +178,7 @@ def ingest_option_snapshot_3d(symbol: str):
 
     # snapshot id
     snapshot_id = f"{symbol}_{timestamp}"
+    print(snapshot_id)
 
     exp_date = datetime.datetime.strptime(exp, "%Y-%m-%d").date()
     days_till_expiry = (exp_date - now_dateobject).days
