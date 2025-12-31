@@ -1,5 +1,6 @@
 from tenmin_database import ingest_option_snapshot_3d
 import pandas as pd
+import time
 
 
 def get_sp500_symbols():
@@ -17,6 +18,9 @@ def main():
         except Exception as e:
             print(f"Error ingesting {symbol}: {e}")
 
+        time.sleep(0.3)  # <-- ALWAYS sleep between symbols
+
 
 if __name__ == "__main__":
     main()
+

@@ -1,5 +1,6 @@
 from fiveweekdatabase import ingest_option_snapshot_5w
 import pandas as pd
+import time
 
 
 def get_sp500_symbols():
@@ -16,6 +17,8 @@ def main():
             ingest_option_snapshot_5w(symbol)
         except Exception as e:
             print(f"Error ingesting {symbol}: {e}")
+
+        time.sleep(0.3)  # <-- throttle every symbol
 
 
 if __name__ == "__main__":
