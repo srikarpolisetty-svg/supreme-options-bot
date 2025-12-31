@@ -34,7 +34,7 @@ def load_all_groups(con, symbol: str):
     }
 
     buckets = ["ATM", "OTM_1", "OTM_2"]
-    sides = ["C", "P"]  # C = Call, P = Put
+    sides = ["C", "P"]
 
     data = {}
 
@@ -42,12 +42,29 @@ def load_all_groups(con, symbol: str):
         for side in sides:
             key = f"{bucket}_{'CALL' if side=='C' else 'PUT'}"
 
+            try:
+                short_df = get_latest_snapshot(con, tables["short"], symbol, side, bucket)
+            except Exception:
+                short_df = None
+
+            try:
+                long_df = get_latest_snapshot(con, tables["long"], symbol, side, bucket)
+            except Exception:
+                long_df = None
+
+            # Normalize empty → None
+            if short_df is not None and short_df.empty:
+                short_df = None
+            if long_df is not None and long_df.empty:
+                long_df = None
+
             data[key] = {
-                "short": get_latest_snapshot(con, tables["short"], symbol, side, bucket),
-                "long":  get_latest_snapshot(con, tables["long"],  symbol, side, bucket),
+                "short": short_df,
+                "long":  long_df
             }
 
     return data
+
 
 
 
@@ -61,8 +78,18 @@ def get_option_metrics(groups, key: str):
     groups: dict from load_all_groups()
     key: e.g. "ATM_PUT", "ATM_CALL", "OTM_1_CALL", "OTM_2_PUT", etc.
     """
-    short_df = groups[key]["short"]
-    long_df  = groups[key]["long"]
+
+    if key not in groups:
+        return None
+
+    short_df = groups[key].get("short")
+    long_df  = groups[key].get("long")
+
+    if short_df is None or short_df.empty:
+        return None
+
+    if long_df is None or long_df.empty:
+        return None
 
     short_row = short_df.iloc[0]
     long_row  = long_df.iloc[0]
@@ -84,6 +111,7 @@ def get_option_metrics(groups, key: str):
             "snapshot_id": long_row["snapshot_id"],
         }
     }
+
 
 
 

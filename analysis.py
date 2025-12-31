@@ -26,6 +26,9 @@ def run_option_signals(symbol: str):
 
     groups = load_all_groups(con, symbol)
 
+    if groups is None:
+     return f"no data {symbol}"
+
     # ===== ATM CALL =====
     atm_call = get_option_metrics(groups, "ATM_CALL")
     atm_call_short = atm_call["short"]
