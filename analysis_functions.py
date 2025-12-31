@@ -1,17 +1,28 @@
-def get_latest_snapshot(con, table: str, call_put: str, moneyness_bucket: str):
+def get_latest_snapshot(
+    con,
+    table: str,
+    symbol: str,
+    call_put: str,
+    moneyness_bucket: str
+):
     """
-    Grab the latest snapshot row for a given table / call_put / moneyness bucket.
-    Returns a 1-row DataFrame (so you can use .iloc[0] like before).
+    Grab the latest snapshot row for a given table / symbol / call_put / moneyness bucket.
+    Returns a 1-row DataFrame.
     """
     query = f"""
         SELECT *
         FROM {table}
-        WHERE call_put = ?
+        WHERE symbol = ?
+          AND call_put = ?
           AND moneyness_bucket = ?
         ORDER BY snapshot_id DESC
         LIMIT 1
     """
-    return con.execute(query, [call_put, moneyness_bucket]).df()
+    return con.execute(
+        query,
+        [symbol, call_put, moneyness_bucket]
+    ).df()
+
 
 
 
