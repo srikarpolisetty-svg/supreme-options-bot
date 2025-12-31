@@ -60,15 +60,21 @@ def ingest_option_snapshot_3d(symbol: str):
     def get_friday_within_4_days():
         for exp in expirations:
             d = datetime.datetime.strptime(exp, "%Y-%m-%d").date()
-            if d.weekday() == 4 and (d - now_dateobject).days <= 4:
+
+            is_friday = d.weekday() == 4
+            is_within_4_days = (d - now_dateobject).days <= 4
+            is_third_friday = is_friday and 15 <= d.day <= 21  # monthly exp
+
+            if is_friday and is_within_4_days and not is_third_friday:
                 return exp
+
         return None
 
     exp = get_friday_within_4_days()
 
     if exp is None:
-        print("No valid Friday expiration in range.")
-        sys.exit(0)
+        print(f"{symbol}: no valid weekly Friday expiration (skipping 3rd Friday / monthly-only).")
+        return  # <-- do NOT sys.exit
 
     chain = stock.option_chain(exp)
 

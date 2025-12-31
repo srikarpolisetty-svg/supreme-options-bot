@@ -38,21 +38,28 @@ def ingest_option_snapshot_5w(symbol: str):
     now_dateobject = now.date()
 
     stock = yf.Ticker(symbol)
-
     expirations = stock.options
 
     def get_friday_within_4_days():
         for exp in expirations:
             d = datetime.datetime.strptime(exp, "%Y-%m-%d").date()
-            if d.weekday() == 4 and (d - now_dateobject).days <= 4:
+
+            is_friday = d.weekday() == 4
+            is_within_4_days = (d - now_dateobject).days <= 4
+            is_third_friday = is_friday and 15 <= d.day <= 21  # monthly exp
+
+            if is_friday and is_within_4_days and not is_third_friday:
                 return exp
+
         return None
 
     exp = get_friday_within_4_days()
 
     if exp is None:
-        print("No valid Friday expiration in range.")
-        sys.exit(0)
+        print(f"{symbol}: no valid weekly Friday expiration (skipping 3rd Friday / monthly-only).")
+        return  # <-- do NOT sys.exit
+
+
 
     chain = stock.option_chain(exp)
 
@@ -61,90 +68,90 @@ def ingest_option_snapshot_5w(symbol: str):
 
     # 1–2% and 3–4% OTM targets
     otm_call_1_strike = atm * 1.015
-    otm_put_1_strike  = atm * 0.985
+    otm_put_1_strike = atm * 0.985
 
     otm_call_2_strike = atm * 1.035
-    otm_put_2_strike  = atm * 0.965
+    otm_put_2_strike = atm * 0.965
 
     # ---------- STEP 2: Find closest strikes ----------
     closest_atm_call = get_closest_strike(chain, "C", atm)
-    closest_atm_put  = get_closest_strike(chain, "P", atm)
+    closest_atm_put = get_closest_strike(chain, "P", atm)
 
     otm_call_1_closest = get_closest_strike(chain, "C", otm_call_1_strike)
-    otm_put_1_closest  = get_closest_strike(chain, "P", otm_put_1_strike)
+    otm_put_1_closest = get_closest_strike(chain, "P", otm_put_1_strike)
 
     otm_call_2_closest = get_closest_strike(chain, "C", otm_call_2_strike)
-    otm_put_2_closest  = get_closest_strike(chain, "P", otm_put_2_strike)
+    otm_put_2_closest = get_closest_strike(chain, "P", otm_put_2_strike)
 
     # OCC strike formatting
     atm_call_option_strike_OCC = f"{int(closest_atm_call * 1000):08d}"
-    atm_put_option_strike_OCC  = f"{int(closest_atm_put * 1000):08d}"
+    atm_put_option_strike_OCC = f"{int(closest_atm_put * 1000):08d}"
 
     otm1_call_option_strike_OCC = f"{int(otm_call_1_closest * 1000):08d}"
-    otm1_put_option_strike_OCC  = f"{int(otm_put_1_closest * 1000):08d}"
+    otm1_put_option_strike_OCC = f"{int(otm_put_1_closest * 1000):08d}"
 
     otm2_call_option_strike_OCC = f"{int(otm_call_2_closest * 1000):08d}"
-    otm2_put_option_strike_OCC  = f"{int(otm_put_2_closest * 1000):08d}"
+    otm2_put_option_strike_OCC = f"{int(otm_put_2_closest * 1000):08d}"
 
     # ---------- STEP 3: Quotes ----------
     atm_call_q = get_option_quote(chain, "C", closest_atm_call)
-    atm_call_bid         = atm_call_q["bid"]
-    atm_call_ask         = atm_call_q["ask"]
-    atm_call_mid         = atm_call_q["mid"]
-    atm_call_volume      = atm_call_q["volume"]
-    atm_call_iv          = atm_call_q["iv"]
-    atm_call_oi          = atm_call_q["oi"]
-    atm_call_spread      = atm_call_q["spread"]
-    atm_call_spread_pct  = atm_call_q["spread_pct"]
+    atm_call_bid = atm_call_q["bid"]
+    atm_call_ask = atm_call_q["ask"]
+    atm_call_mid = atm_call_q["mid"]
+    atm_call_volume = atm_call_q["volume"]
+    atm_call_iv = atm_call_q["iv"]
+    atm_call_oi = atm_call_q["oi"]
+    atm_call_spread = atm_call_q["spread"]
+    atm_call_spread_pct = atm_call_q["spread_pct"]
 
     atm_put_q = get_option_quote(chain, "P", closest_atm_put)
-    atm_put_bid         = atm_put_q["bid"]
-    atm_put_ask         = atm_put_q["ask"]
-    atm_put_mid         = atm_put_q["mid"]
-    atm_put_volume      = atm_put_q["volume"]
-    atm_put_iv          = atm_put_q["iv"]
-    atm_put_oi          = atm_put_q["oi"]
-    atm_put_spread      = atm_put_q["spread"]
-    atm_put_spread_pct  = atm_put_q["spread_pct"]
+    atm_put_bid = atm_put_q["bid"]
+    atm_put_ask = atm_put_q["ask"]
+    atm_put_mid = atm_put_q["mid"]
+    atm_put_volume = atm_put_q["volume"]
+    atm_put_iv = atm_put_q["iv"]
+    atm_put_oi = atm_put_q["oi"]
+    atm_put_spread = atm_put_q["spread"]
+    atm_put_spread_pct = atm_put_q["spread_pct"]
 
     otm1_call_q = get_option_quote(chain, "C", otm_call_1_closest)
-    otm_call_1_bid        = otm1_call_q["bid"]
-    otm_call_1_ask        = otm1_call_q["ask"]
-    otm_call_1_mid        = otm1_call_q["mid"]
-    otm_call_1_volume     = otm1_call_q["volume"]
-    otm_call_1_iv         = otm1_call_q["iv"]
-    otm_call_1_oi         = otm1_call_q["oi"]
-    otm_call_1_spread     = otm1_call_q["spread"]
+    otm_call_1_bid = otm1_call_q["bid"]
+    otm_call_1_ask = otm1_call_q["ask"]
+    otm_call_1_mid = otm1_call_q["mid"]
+    otm_call_1_volume = otm1_call_q["volume"]
+    otm_call_1_iv = otm1_call_q["iv"]
+    otm_call_1_oi = otm1_call_q["oi"]
+    otm_call_1_spread = otm1_call_q["spread"]
     otm_call_1_spread_pct = otm1_call_q["spread_pct"]
 
     otm1_put_q = get_option_quote(chain, "P", otm_put_1_closest)
-    otm_put_1_bid        = otm1_put_q["bid"]
-    otm_put_1_ask        = otm1_put_q["ask"]
-    otm_put_1_mid        = otm1_put_q["mid"]
-    otm_put_1_volume     = otm1_put_q["volume"]
-    otm_put_1_iv         = otm1_put_q["iv"]
-    otm_put_1_oi         = otm1_put_q["oi"]
-    otm_put_1_spread     = otm1_put_q["spread"]
+    otm_put_1_bid = otm1_put_q["bid"]
+    otm_put_1_ask = otm1_put_q["ask"]
+    otm_put_1_mid = otm1_put_q["mid"]
+    otm_put_1_volume = otm1_put_q["volume"]
+    otm_put_1_iv = otm1_put_q["iv"]
+    otm_put_1_oi = otm1_put_q["oi"]
+    otm_put_1_spread = otm1_put_q["spread"]
     otm_put_1_spread_pct = otm1_put_q["spread_pct"]
 
     otm2_call_q = get_option_quote(chain, "C", otm_call_2_closest)
-    otm_call_2_bid        = otm2_call_q["bid"]
-    otm_call_2_ask        = otm2_call_q["ask"]
-    otm_call_2_mid        = otm2_call_q["mid"]
-    otm_call_2_volume     = otm2_call_q["volume"]
-    otm_call_2_iv         = otm2_call_q["iv"]
-    otm_call_2_oi         = otm2_call_q["oi"]
-    otm_call_2_spread     = otm2_call_q["spread"]
+    otm_call_2_bid = otm2_call_q["bid"]
+    otm_call_2_ask = otm2_call_q["ask"]
+    otm_call_2_mid = otm2_call_q["mid"]
+    otm_call_2_volume = otm2_call_q["volume"]
+    otm_call_2_iv = otm2_call_q["iv"]
+    otm_call_2_oi = otm2_call_q["oi"]
+    otm_call_2_spread = otm2_call_q["spread"]
     otm_call_2_spread_pct = otm2_call_q["spread_pct"]
 
     otm2_put_q = get_option_quote(chain, "P", otm_put_2_closest)
-    otm_put_2_bid        = otm2_put_q["bid"]
-    otm_put_2_ask        = otm2_put_q["ask"]
-    otm_put_2_mid        = otm2_put_q["mid"]
-    otm_put_2_volume     = otm2_put_q["volume"]
-    otm_put_2_iv         = otm2_put_q["iv"]
-    otm_put_2_oi         = otm2_put_q["oi"]
-    otm_put_2_spread     = otm2_put_q["spread"]
+    otm_put_2_bid = otm2_put_q["bid"]
+    otm_put_2_ask = otm2_put_q["ask"]
+    otm_put_2_mid = otm2_put_q["mid"]
+    otm_put_2_volume = otm2_put_q["volume"]
+    otm_put_2_iv = otm2_put_q["iv"]
+    otm_put_2_oi = otm2_put_q["oi"]
+    otm_put_2_spread = otm2_put_q["spread"]
     otm_put_2_spread_pct = otm2_put_q["spread_pct"]
 
     # ---------- STEP 4: Timestamp / buckets ----------
@@ -153,7 +160,7 @@ def ingest_option_snapshot_5w(symbol: str):
 
     snapshot_id = f"{symbol}_{timestamp}"
     print(snapshot_id)
-    
+
     expiration = exp
     exp_date = datetime.datetime.strptime(expiration, "%Y-%m-%d").date()
     days_till_expiry = (exp_date - now_dateobject).days
@@ -167,12 +174,12 @@ def ingest_option_snapshot_5w(symbol: str):
     else:
         time_decay_bucket = "LOW"
 
-    option_symbol_atm_call  = f"{symbol}{exp_date}C{atm_call_option_strike_OCC}"
-    option_symbol_atm_put   = f"{symbol}{exp_date}P{atm_put_option_strike_OCC}"
+    option_symbol_atm_call = f"{symbol}{exp_date}C{atm_call_option_strike_OCC}"
+    option_symbol_atm_put = f"{symbol}{exp_date}P{atm_put_option_strike_OCC}"
     option_symbol_otm1_call = f"{symbol}{exp_date}C{otm1_call_option_strike_OCC}"
-    option_symbol_otm1_put  = f"{symbol}{exp_date}P{otm1_put_option_strike_OCC}"
+    option_symbol_otm1_put = f"{symbol}{exp_date}P{otm1_put_option_strike_OCC}"
     option_symbol_otm2_call = f"{symbol}{exp_date}C{otm2_call_option_strike_OCC}"
-    option_symbol_otm2_put  = f"{symbol}{exp_date}P{otm2_put_option_strike_OCC}"
+    option_symbol_otm2_put = f"{symbol}{exp_date}P{otm2_put_option_strike_OCC}"
 
     # ======================
     # DB
